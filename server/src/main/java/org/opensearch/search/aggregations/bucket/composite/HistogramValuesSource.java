@@ -64,11 +64,6 @@ class HistogramValuesSource extends ValuesSource.Numeric {
     }
 
     @Override
-    public boolean isBigInteger() {
-        return false;
-    }
-
-    @Override
     public SortedNumericDoubleValues doubleValues(LeafReaderContext context) throws IOException {
         SortedNumericDoubleValues values = vs.doubleValues(context);
         return new SortedNumericDoubleValues() {

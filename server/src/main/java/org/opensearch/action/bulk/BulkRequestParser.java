@@ -38,11 +38,10 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.common.Nullable;
 import org.opensearch.core.ParseField;
-import org.opensearch.core.common.bytes.BytesArray;
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.bytes.BytesArray;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
-import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContent;
 import org.opensearch.core.xcontent.XContentParser;
@@ -102,10 +101,10 @@ public final class BulkRequestParser {
         BytesReference bytesReference,
         int from,
         int nextMarker,
-        MediaType mediaType
+        XContentType xContentType
     ) {
         final int length;
-        if (XContentType.JSON == mediaType && bytesReference.get(nextMarker - 1) == (byte) '\r') {
+        if (XContentType.JSON == xContentType && bytesReference.get(nextMarker - 1) == (byte) '\r') {
             length = nextMarker - from - 1;
         } else {
             length = nextMarker - from;
@@ -126,12 +125,12 @@ public final class BulkRequestParser {
         @Nullable String defaultPipeline,
         @Nullable Boolean defaultRequireAlias,
         boolean allowExplicitIndex,
-        MediaType mediaType,
+        XContentType xContentType,
         Consumer<IndexRequest> indexRequestConsumer,
         Consumer<UpdateRequest> updateRequestConsumer,
         Consumer<DeleteRequest> deleteRequestConsumer
     ) throws IOException {
-        XContent xContent = mediaType.xContent();
+        XContent xContent = xContentType.xContent();
         int line = 0;
         int from = 0;
         byte marker = xContent.streamSeparator();
@@ -313,7 +312,7 @@ public final class BulkRequestParser {
                                     .setPipeline(pipeline)
                                     .setIfSeqNo(ifSeqNo)
                                     .setIfPrimaryTerm(ifPrimaryTerm)
-                                    .source(sliceTrimmingCarriageReturn(data, from, nextMarker, mediaType), mediaType)
+                                    .source(sliceTrimmingCarriageReturn(data, from, nextMarker, xContentType), xContentType)
                                     .setRequireAlias(requireAlias)
                             );
                         } else {
@@ -326,7 +325,7 @@ public final class BulkRequestParser {
                                     .setPipeline(pipeline)
                                     .setIfSeqNo(ifSeqNo)
                                     .setIfPrimaryTerm(ifPrimaryTerm)
-                                    .source(sliceTrimmingCarriageReturn(data, from, nextMarker, mediaType), mediaType)
+                                    .source(sliceTrimmingCarriageReturn(data, from, nextMarker, xContentType), xContentType)
                                     .setRequireAlias(requireAlias)
                             );
                         }
@@ -340,7 +339,7 @@ public final class BulkRequestParser {
                                 .setPipeline(pipeline)
                                 .setIfSeqNo(ifSeqNo)
                                 .setIfPrimaryTerm(ifPrimaryTerm)
-                                .source(sliceTrimmingCarriageReturn(data, from, nextMarker, mediaType), mediaType)
+                                .source(sliceTrimmingCarriageReturn(data, from, nextMarker, xContentType), xContentType)
                                 .setRequireAlias(requireAlias)
                         );
                     } else if ("update".equals(action)) {
@@ -359,7 +358,7 @@ public final class BulkRequestParser {
                             .routing(routing);
                         try (
                             XContentParser sliceParser = createParser(
-                                sliceTrimmingCarriageReturn(data, from, nextMarker, mediaType),
+                                sliceTrimmingCarriageReturn(data, from, nextMarker, xContentType),
                                 xContent
                             )
                         ) {

@@ -36,10 +36,11 @@ import org.opensearch.action.admin.cluster.state.ClusterStateResponse;
 import org.opensearch.action.admin.indices.mapping.get.GetMappingsResponse;
 import org.opensearch.cluster.coordination.Coordinator;
 import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.discovery.Discovery;
 import org.opensearch.env.NodeEnvironment;
-import org.opensearch.core.index.Index;
+import org.opensearch.index.Index;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.test.OpenSearchIntegTestCase.ClusterScope;
 import org.opensearch.test.OpenSearchIntegTestCase.Scope;
@@ -151,7 +152,7 @@ public class MetadataNodesIT extends OpenSearchIntegTestCase {
         );
 
         // make sure it was also written on red node although index is closed
-        Map<String, IndexMetadata> indicesMetadata = getIndicesMetadataOnNode(dataNode);
+        ImmutableOpenMap<String, IndexMetadata> indicesMetadata = getIndicesMetadataOnNode(dataNode);
         assertNotNull(((Map<String, ?>) (indicesMetadata.get(index).mapping().getSourceAsMap().get("properties"))).get("integer_field"));
         assertThat(indicesMetadata.get(index).getState(), equalTo(IndexMetadata.State.CLOSE));
 
@@ -238,7 +239,7 @@ public class MetadataNodesIT extends OpenSearchIntegTestCase {
         return false;
     }
 
-    private Map<String, IndexMetadata> getIndicesMetadataOnNode(String nodeName) {
+    private ImmutableOpenMap<String, IndexMetadata> getIndicesMetadataOnNode(String nodeName) {
         final Coordinator coordinator = (Coordinator) internalCluster().getInstance(Discovery.class, nodeName);
         return coordinator.getApplierState().getMetadata().getIndices();
     }

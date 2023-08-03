@@ -34,7 +34,6 @@ package org.opensearch.indices.recovery;
 
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.index.IndexCommit;
-import org.hamcrest.Matcher;
 import org.opensearch.OpenSearchException;
 import org.opensearch.Version;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
@@ -74,17 +73,17 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Priority;
 import org.opensearch.common.SetOnce;
 import org.opensearch.common.Strings;
-import org.opensearch.core.common.breaker.CircuitBreaker;
-import org.opensearch.core.common.breaker.CircuitBreakingException;
+import org.opensearch.common.breaker.CircuitBreaker;
+import org.opensearch.common.breaker.CircuitBreakingException;
 import org.opensearch.common.concurrent.GatedCloseable;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.common.unit.ByteSizeUnit;
-import org.opensearch.core.common.unit.ByteSizeValue;
+import org.opensearch.common.unit.ByteSizeUnit;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
+import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.gateway.ReplicaShardAllocatorIT;
-import org.opensearch.core.index.Index;
+import org.opensearch.index.Index;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.MockEngineFactoryPlugin;
@@ -96,14 +95,14 @@ import org.opensearch.index.seqno.ReplicationTracker;
 import org.opensearch.index.seqno.RetentionLeases;
 import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.index.shard.IndexShard;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.index.store.Store;
 import org.opensearch.index.store.StoreStats;
 import org.opensearch.indices.IndicesService;
 import org.opensearch.indices.NodeIndicesStats;
 import org.opensearch.indices.analysis.AnalysisModule;
-import org.opensearch.indices.recovery.RecoveryState.Stage;
 import org.opensearch.indices.replication.common.ReplicationLuceneIndex;
+import org.opensearch.indices.recovery.RecoveryState.Stage;
 import org.opensearch.node.NodeClosedException;
 import org.opensearch.node.RecoverySettingsChunkSizePlugin;
 import org.opensearch.plugins.AnalysisPlugin;
@@ -140,7 +139,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Spliterators;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
@@ -578,25 +576,21 @@ public class IndexRecoveryIT extends OpenSearchIntegTestCase {
                 .clear()
                 .setIndices(new CommonStatsFlags(CommonStatsFlags.Flag.Recovery))
                 .get();
-            List<NodeStats> dataNodeStats = statsResponse1.getNodes()
-                .stream()
-                .filter(nodeStats -> nodeStats.getNode().isDataNode())
-                .collect(Collectors.toList());
-            assertThat(dataNodeStats, hasSize(2));
-            for (NodeStats nodeStats : dataNodeStats) {
+            assertThat(statsResponse1.getNodes(), hasSize(2));
+            for (NodeStats nodeStats : statsResponse1.getNodes()) {
                 final RecoveryStats recoveryStats = nodeStats.getIndices().getRecoveryStats();
                 if (nodeStats.getNode().getName().equals(nodeA)) {
                     assertThat(
                         "node A throttling should increase",
                         recoveryStats.throttleTime().millis(),
-                        getMatcherForThrottling(finalNodeAThrottling)
+                        greaterThan(finalNodeAThrottling)
                     );
                 }
                 if (nodeStats.getNode().getName().equals(nodeB)) {
                     assertThat(
                         "node B throttling should increase",
                         recoveryStats.throttleTime().millis(),
-                        getMatcherForThrottling(finalNodeBThrottling)
+                        greaterThan(finalNodeBThrottling)
                     );
                 }
             }
@@ -628,7 +622,7 @@ public class IndexRecoveryIT extends OpenSearchIntegTestCase {
             final RecoveryStats recoveryStats = nodeStats.getIndices().getRecoveryStats();
             assertThat(recoveryStats.currentAsSource(), equalTo(0));
             assertThat(recoveryStats.currentAsTarget(), equalTo(0));
-            assertThat(nodeName + " throttling should be >0", recoveryStats.throttleTime().millis(), getMatcherForThrottling(0));
+            assertThat(nodeName + " throttling should be >0", recoveryStats.throttleTime().millis(), greaterThan(0L));
         };
         // we have to use assertBusy as recovery counters are decremented only when the last reference to the RecoveryTarget
         // is decremented, which may happen after the recovery was done.
@@ -649,8 +643,7 @@ public class IndexRecoveryIT extends OpenSearchIntegTestCase {
 
         logger.info("--> start node C");
         String nodeC = internalCluster().startNode();
-        int nodeCount = internalCluster().getNodeNames().length;
-        assertFalse(client().admin().cluster().prepareHealth().setWaitForNodes(String.valueOf(nodeCount)).get().isTimedOut());
+        assertFalse(client().admin().cluster().prepareHealth().setWaitForNodes("3").get().isTimedOut());
 
         logger.info("--> slowing down recoveries");
         slowDownRecovery(shardSize);
@@ -684,7 +677,7 @@ public class IndexRecoveryIT extends OpenSearchIntegTestCase {
         assertOnGoingRecoveryState(nodeCRecoveryStates.get(0), 0, PeerRecoverySource.INSTANCE, false, nodeB, nodeC);
         validateIndexRecoveryState(nodeCRecoveryStates.get(0).getIndex());
 
-        if (randomBoolean() && shouldAssertOngoingRecoveryInRerouteRecovery()) {
+        if (randomBoolean()) {
             // shutdown node with relocation source of replica shard and check if recovery continues
             internalCluster().stopRandomNode(InternalTestCluster.nameFilter(nodeA));
             ensureStableCluster(2);
@@ -726,14 +719,6 @@ public class IndexRecoveryIT extends OpenSearchIntegTestCase {
         // relocations of replicas are marked as REPLICA and the source node is the node holding the primary (B)
         assertRecoveryState(nodeCRecoveryStates.get(0), 0, PeerRecoverySource.INSTANCE, false, Stage.DONE, nodeB, nodeC);
         validateIndexRecoveryState(nodeCRecoveryStates.get(0).getIndex());
-    }
-
-    protected boolean shouldAssertOngoingRecoveryInRerouteRecovery() {
-        return false;
-    }
-
-    protected Matcher<Long> getMatcherForThrottling(long value) {
-        return greaterThan(value);
     }
 
     public void testSnapshotRecovery() throws Exception {
@@ -838,7 +823,7 @@ public class IndexRecoveryIT extends OpenSearchIntegTestCase {
         ensureGreen();
 
         logger.info("--> indexing sample data");
-        final int numDocs = numDocs();
+        final int numDocs = between(MIN_DOC_COUNT, MAX_DOC_COUNT);
         final IndexRequestBuilder[] docs = new IndexRequestBuilder[numDocs];
 
         for (int i = 0; i < numDocs; i++) {
@@ -858,10 +843,6 @@ public class IndexRecoveryIT extends OpenSearchIntegTestCase {
         assertThat(indexState.recoveredFilesPercent(), lessThanOrEqualTo(100.0f));
         assertThat(indexState.recoveredBytesPercent(), greaterThanOrEqualTo(0.0f));
         assertThat(indexState.recoveredBytesPercent(), lessThanOrEqualTo(100.0f));
-    }
-
-    protected int numDocs() {
-        return between(MIN_DOC_COUNT, MAX_DOC_COUNT);
     }
 
     public void testTransientErrorsDuringRecoveryAreRetried() throws Exception {
@@ -1402,10 +1383,10 @@ public class IndexRecoveryIT extends OpenSearchIntegTestCase {
             flush(indexName);
         }
 
-        String firstNodeToStop = randomFrom(internalCluster().getDataNodeNames());
+        String firstNodeToStop = randomFrom(internalCluster().getNodeNames());
         Settings firstNodeToStopDataPathSettings = internalCluster().dataPathSettings(firstNodeToStop);
         internalCluster().stopRandomNode(InternalTestCluster.nameFilter(firstNodeToStop));
-        String secondNodeToStop = randomFrom(internalCluster().getDataNodeNames());
+        String secondNodeToStop = randomFrom(internalCluster().getNodeNames());
         Settings secondNodeToStopDataPathSettings = internalCluster().dataPathSettings(secondNodeToStop);
         internalCluster().stopRandomNode(InternalTestCluster.nameFilter(secondNodeToStop));
 
@@ -1555,8 +1536,8 @@ public class IndexRecoveryIT extends OpenSearchIntegTestCase {
         internalCluster().ensureAtLeastNumDataNodes(2);
         List<String> nodes = randomSubsetOf(
             2,
-            StreamSupport.stream(Spliterators.spliterator(clusterService().state().nodes().getDataNodes().values(), 0), false)
-                .map(node -> node.getName())
+            StreamSupport.stream(clusterService().state().nodes().getDataNodes().spliterator(), false)
+                .map(node -> node.value.getName())
                 .collect(Collectors.toSet())
         );
         String indexName = "test-index";

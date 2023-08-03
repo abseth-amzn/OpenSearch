@@ -12,15 +12,12 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LogEvent;
-import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.opensearch.action.search.SearchShardTask;
 import org.opensearch.common.logging.Loggers;
 import org.opensearch.common.logging.MockAppender;
-import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.unit.TimeValue;
 import org.opensearch.tasks.ResourceStats;
 import org.opensearch.tasks.ResourceStatsType;
 import org.opensearch.tasks.ResourceUsageMetric;
@@ -29,9 +26,8 @@ import org.opensearch.test.OpenSearchSingleNodeTestCase;
 
 import java.util.Collections;
 
-import static org.opensearch.tasks.consumer.TopNSearchTasksLogger.LOG_TOP_QUERIES_SIZE_SETTING;
-import static org.opensearch.tasks.consumer.TopNSearchTasksLogger.LOG_TOP_QUERIES_FREQUENCY_SETTING;
-import static org.opensearch.test.hamcrest.OpenSearchAssertions.assertAcked;
+import static org.opensearch.tasks.consumer.TopNSearchTasksLogger.LOG_TOP_QUERIES_FREQUENCY;
+import static org.opensearch.tasks.consumer.TopNSearchTasksLogger.LOG_TOP_QUERIES_SIZE;
 
 public class TopNSearchTasksLoggerTests extends OpenSearchSingleNodeTestCase {
     static MockAppender appender;
@@ -46,17 +42,6 @@ public class TopNSearchTasksLoggerTests extends OpenSearchSingleNodeTestCase {
         Loggers.addAppender(searchLogger, appender);
     }
 
-    @After
-    public void cleanupAfterTest() {
-        assertAcked(
-            client().admin()
-                .cluster()
-                .prepareUpdateSettings()
-                .setPersistentSettings(Settings.builder().putNull("*"))
-                .setTransientSettings(Settings.builder().putNull("*"))
-        );
-    }
-
     @AfterClass
     public static void cleanup() {
         Loggers.removeAppender(searchLogger, appender);
@@ -64,16 +49,8 @@ public class TopNSearchTasksLoggerTests extends OpenSearchSingleNodeTestCase {
     }
 
     public void testLoggerWithTasks() {
-        final Settings settings = Settings.builder()
-            .put(LOG_TOP_QUERIES_SIZE_SETTING.getKey(), 1)
-            .put(LOG_TOP_QUERIES_FREQUENCY_SETTING.getKey(), "60s")
-            .build();
-        topNSearchTasksLogger = new TopNSearchTasksLogger(
-            settings,
-            new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS)
-        );
-        // This setting overrides is just for testing purpose
-        topNSearchTasksLogger.setTopQueriesLogFrequencyInNanos(TimeValue.timeValueMillis(0));
+        final Settings settings = Settings.builder().put(LOG_TOP_QUERIES_SIZE, 1).put(LOG_TOP_QUERIES_FREQUENCY, "0ms").build();
+        topNSearchTasksLogger = new TopNSearchTasksLogger(settings);
         generateTasks(5);
         LogEvent logEvent = appender.getLastEventAndReset();
         assertNotNull(logEvent);
@@ -82,28 +59,16 @@ public class TopNSearchTasksLoggerTests extends OpenSearchSingleNodeTestCase {
     }
 
     public void testLoggerWithoutTasks() {
-        final Settings settings = Settings.builder()
-            .put(LOG_TOP_QUERIES_SIZE_SETTING.getKey(), 1)
-            .put(LOG_TOP_QUERIES_FREQUENCY_SETTING.getKey(), "60s")
-            .build();
-        topNSearchTasksLogger = new TopNSearchTasksLogger(
-            settings,
-            new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS)
-        );
+        final Settings settings = Settings.builder().put(LOG_TOP_QUERIES_SIZE, 1).put(LOG_TOP_QUERIES_FREQUENCY, "500ms").build();
+        topNSearchTasksLogger = new TopNSearchTasksLogger(settings);
 
         assertNull(appender.getLastEventAndReset());
     }
 
     public void testLoggerWithHighFrequency() {
         // setting the frequency to a really large value and confirming that nothing gets written to log file.
-        final Settings settings = Settings.builder()
-            .put(LOG_TOP_QUERIES_SIZE_SETTING.getKey(), 1)
-            .put(LOG_TOP_QUERIES_FREQUENCY_SETTING.getKey(), "10m")
-            .build();
-        topNSearchTasksLogger = new TopNSearchTasksLogger(
-            settings,
-            new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS)
-        );
+        final Settings settings = Settings.builder().put(LOG_TOP_QUERIES_SIZE, 1).put(LOG_TOP_QUERIES_FREQUENCY, "10m").build();
+        topNSearchTasksLogger = new TopNSearchTasksLogger(settings);
         generateTasks(5);
         generateTasks(2);
 

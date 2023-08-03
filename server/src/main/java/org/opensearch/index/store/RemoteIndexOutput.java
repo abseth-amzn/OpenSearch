@@ -28,7 +28,7 @@ import java.io.IOException;
  */
 public class RemoteIndexOutput extends IndexOutput {
 
-    protected final BlobContainer blobContainer;
+    private final BlobContainer blobContainer;
 
     public RemoteIndexOutput(String name, BlobContainer blobContainer) {
         super(name, name);

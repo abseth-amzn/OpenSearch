@@ -52,7 +52,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.BigArrays;
 import org.opensearch.common.util.MockBigArrays;
 import org.opensearch.common.util.MockPageCacheRecycler;
-import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
+import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.cache.IndexCache;
@@ -64,8 +64,8 @@ import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.ParsedQuery;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.shard.IndexShard;
-import org.opensearch.core.index.shard.ShardId;
-import org.opensearch.core.indices.breaker.NoneCircuitBreakerService;
+import org.opensearch.index.shard.ShardId;
+import org.opensearch.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.search.internal.AliasFilter;
 import org.opensearch.search.internal.LegacyReaderContext;
 import org.opensearch.search.internal.PitReaderContext;
@@ -213,8 +213,7 @@ public class DefaultSearchContextTests extends OpenSearchTestCase {
                 false,
                 Version.CURRENT,
                 false,
-                executor,
-                null
+                executor
             );
             contextWithoutScroll.from(300);
             contextWithoutScroll.close();
@@ -256,8 +255,7 @@ public class DefaultSearchContextTests extends OpenSearchTestCase {
                 false,
                 Version.CURRENT,
                 false,
-                executor,
-                null
+                executor
             );
             context1.from(300);
             exception = expectThrows(IllegalArgumentException.class, () -> context1.preProcess(false));
@@ -327,8 +325,7 @@ public class DefaultSearchContextTests extends OpenSearchTestCase {
                 false,
                 Version.CURRENT,
                 false,
-                executor,
-                null
+                executor
             );
 
             SliceBuilder sliceBuilder = mock(SliceBuilder.class);
@@ -367,8 +364,7 @@ public class DefaultSearchContextTests extends OpenSearchTestCase {
                 false,
                 Version.CURRENT,
                 false,
-                executor,
-                null
+                executor
             );
             ParsedQuery parsedQuery = ParsedQuery.parsedMatchAllQuery();
             context3.sliceBuilder(null).parsedQuery(parsedQuery).preProcess(false);
@@ -403,8 +399,7 @@ public class DefaultSearchContextTests extends OpenSearchTestCase {
                 false,
                 Version.CURRENT,
                 false,
-                executor,
-                null
+                executor
             );
             context4.sliceBuilder(new SliceBuilder(1, 2)).parsedQuery(parsedQuery).preProcess(false);
             Query query1 = context4.query();
@@ -434,8 +429,7 @@ public class DefaultSearchContextTests extends OpenSearchTestCase {
                 false,
                 Version.CURRENT,
                 false,
-                executor,
-                null
+                executor
             );
             int numSlicesForPit = maxSlicesPerPit + randomIntBetween(1, 100);
             when(sliceBuilder.getMax()).thenReturn(numSlicesForPit);
@@ -532,8 +526,7 @@ public class DefaultSearchContextTests extends OpenSearchTestCase {
                 false,
                 Version.CURRENT,
                 false,
-                executor,
-                null
+                executor
             );
             assertThat(context.searcher().hasCancellations(), is(false));
             context.searcher().addQueryCancellation(() -> {});

@@ -34,8 +34,6 @@ package org.opensearch.plugins;
 
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
-import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
-import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.lucene.search.spell.LevenshteinDistance;
 import org.apache.lucene.util.CollectionUtil;
 import org.apache.lucene.util.Constants;
@@ -60,7 +58,7 @@ import org.opensearch.cli.UserException;
 import org.opensearch.common.SuppressForbidden;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.hash.MessageDigests;
-import org.opensearch.common.util.io.IOUtils;
+import org.opensearch.core.internal.io.IOUtils;
 import org.opensearch.env.Environment;
 
 import java.io.BufferedReader;
@@ -91,7 +89,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -102,6 +99,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import static org.opensearch.cli.Terminal.Verbosity.VERBOSE;
 
@@ -717,12 +716,10 @@ class InstallPluginCommand extends EnvironmentAwareCommand {
         final Path target = stagingDirectory(pluginsDir);
         pathsToDeleteOnShutdown.add(target);
 
-        try (ZipFile zipFile = new ZipFile(zip, "UTF8", true, false)) {
-            final Enumeration<? extends ZipArchiveEntry> entries = zipFile.getEntries();
-            ZipArchiveEntry entry;
+        try (ZipInputStream zipInput = new ZipInputStream(Files.newInputStream(zip))) {
+            ZipEntry entry;
             byte[] buffer = new byte[8192];
-            while (entries.hasMoreElements()) {
-                entry = entries.nextElement();
+            while ((entry = zipInput.getNextEntry()) != null) {
                 if (entry.getName().startsWith("opensearch/")) {
                     throw new UserException(
                         PLUGIN_MALFORMED,
@@ -750,11 +747,14 @@ class InstallPluginCommand extends EnvironmentAwareCommand {
                     Files.createDirectories(targetFile.getParent());
                 }
                 if (entry.isDirectory() == false) {
-                    // streams will be auto-closed with try-with-resources
-                    try (OutputStream out = Files.newOutputStream(targetFile); InputStream input = zipFile.getInputStream(entry)) {
-                        input.transferTo(out);
+                    try (OutputStream out = Files.newOutputStream(targetFile)) {
+                        int len;
+                        while ((len = zipInput.read(buffer)) >= 0) {
+                            out.write(buffer, 0, len);
+                        }
                     }
                 }
+                zipInput.closeEntry();
             }
         } catch (UserException e) {
             IOUtils.rm(target);

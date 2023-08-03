@@ -32,6 +32,7 @@
 
 package org.opensearch.percolator;
 
+import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Explanation;
@@ -49,7 +50,7 @@ import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.Bits;
 import org.opensearch.common.CheckedFunction;
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.lucene.Lucene;
 
 import java.io.IOException;
@@ -88,8 +89,8 @@ final class PercolateQuery extends Query implements Accountable {
     }
 
     @Override
-    public Query rewrite(IndexSearcher searcher) throws IOException {
-        Query rewritten = candidateMatchesQuery.rewrite(searcher);
+    public Query rewrite(IndexReader reader) throws IOException {
+        Query rewritten = candidateMatchesQuery.rewrite(reader);
         if (rewritten != candidateMatchesQuery) {
             return new PercolateQuery(
                 name,

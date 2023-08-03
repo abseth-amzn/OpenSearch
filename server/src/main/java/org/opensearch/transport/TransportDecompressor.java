@@ -34,10 +34,9 @@ package org.opensearch.transport;
 
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefIterator;
-import org.opensearch.core.common.bytes.BytesArray;
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.bytes.BytesArray;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.bytes.ReleasableBytesReference;
-import org.opensearch.common.compress.Compressor;
 import org.opensearch.common.compress.CompressorFactory;
 import org.opensearch.common.recycler.Recycler;
 import org.opensearch.common.util.PageCacheRecycler;
@@ -70,8 +69,7 @@ public class TransportDecompressor implements Closeable {
     public int decompress(BytesReference bytesReference) throws IOException {
         int bytesConsumed = 0;
         if (hasReadHeader == false) {
-            final Compressor compressor = CompressorFactory.defaultCompressor();
-            if (compressor.isCompressed(bytesReference) == false) {
+            if (CompressorFactory.COMPRESSOR.isCompressed(bytesReference) == false) {
                 int maxToRead = Math.min(bytesReference.length(), 10);
                 StringBuilder sb = new StringBuilder("stream marked as compressed, but no compressor found, first [").append(maxToRead)
                     .append("] content bytes out of [")
@@ -87,7 +85,7 @@ public class TransportDecompressor implements Closeable {
                 throw new IllegalStateException(sb.toString());
             }
             hasReadHeader = true;
-            int headerLength = compressor.headerLength();
+            int headerLength = CompressorFactory.COMPRESSOR.headerLength();
             bytesReference = bytesReference.slice(headerLength, bytesReference.length() - headerLength);
             bytesConsumed += headerLength;
         }
@@ -137,7 +135,7 @@ public class TransportDecompressor implements Closeable {
     }
 
     public boolean canDecompress(int bytesAvailable) {
-        return hasReadHeader || bytesAvailable >= CompressorFactory.defaultCompressor().headerLength();
+        return hasReadHeader || bytesAvailable >= CompressorFactory.COMPRESSOR.headerLength();
     }
 
     public boolean isEOS() {

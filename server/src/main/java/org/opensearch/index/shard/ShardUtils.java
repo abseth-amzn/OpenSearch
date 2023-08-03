@@ -37,7 +37,6 @@ import org.apache.lucene.index.LeafReader;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.lucene.index.OpenSearchDirectoryReader;
 import org.opensearch.common.lucene.index.OpenSearchLeafReader;
-import org.opensearch.core.index.shard.ShardId;
 
 /**
  * Utility class for shard operations

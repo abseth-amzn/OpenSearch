@@ -32,8 +32,7 @@
 
 package org.opensearch.index.shard;
 
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.common.io.stream.StreamInput;
 
 import java.io.IOException;
 

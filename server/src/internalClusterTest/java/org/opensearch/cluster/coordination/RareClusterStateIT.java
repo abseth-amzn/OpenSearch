@@ -56,7 +56,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.discovery.Discovery;
-import org.opensearch.core.index.Index;
+import org.opensearch.index.Index;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.mapper.DocumentMapper;
 import org.opensearch.index.mapper.MapperService;
@@ -394,7 +394,7 @@ public class RareClusterStateIT extends OpenSearchIntegTestCase {
             assertNotNull(mapper.mappers().getMapper("field2"));
         });
 
-        assertBusy(() -> assertTrue(client().prepareGet("index", "2").setPreference("_primary").get().isExists()));
+        assertBusy(() -> assertTrue(client().prepareGet("index", "2").get().isExists()));
 
         // The mappings have not been propagated to the replica yet as a consequence the document count not be indexed
         // We wait on purpose to make sure that the document is not indexed because the shard operation is stalled

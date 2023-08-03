@@ -32,6 +32,8 @@
 
 package org.opensearch.index.seqno;
 
+import com.carrotsearch.hppc.ObjectLongHashMap;
+import com.carrotsearch.hppc.ObjectLongMap;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.LegacyESVersion;
 import org.opensearch.Version;
@@ -44,9 +46,9 @@ import org.opensearch.cluster.routing.IndexShardRoutingTable;
 import org.opensearch.cluster.routing.ShardRouting;
 import org.opensearch.common.SuppressForbidden;
 import org.opensearch.common.collect.Tuple;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.core.common.io.stream.Writeable;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.util.concurrent.ConcurrentCollections;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.gateway.WriteStateException;
@@ -56,7 +58,7 @@ import org.opensearch.index.engine.SafeCommitInfo;
 import org.opensearch.index.shard.AbstractIndexShardComponent;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.index.shard.ReplicationGroup;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.indices.replication.checkpoint.ReplicationCheckpoint;
 import org.opensearch.indices.replication.common.ReplicationTimer;
 
@@ -247,7 +249,7 @@ public class ReplicationTracker extends AbstractIndexShardComponent implements L
 
     private final Consumer<ReplicationGroup> onReplicationGroupUpdated;
 
-    private volatile ReplicationCheckpoint latestReplicationCheckpoint;
+    private volatile ReplicationCheckpoint lastPublishedReplicationCheckpoint;
 
     /**
      * Get all retention leases tracked on this shard.
@@ -814,10 +816,10 @@ public class ReplicationTracker extends AbstractIndexShardComponent implements L
      *
      * @return a map from allocation ID to the local knowledge of the persisted global checkpoint for that allocation ID
      */
-    public synchronized Map<String, Long> getInSyncGlobalCheckpoints() {
+    public synchronized ObjectLongMap<String> getInSyncGlobalCheckpoints() {
         assert primaryMode;
         assert handoffInProgress == false;
-        final Map<String, Long> globalCheckpoints = new HashMap<>(checkpoints.size()); // upper bound on the size
+        final ObjectLongMap<String> globalCheckpoints = new ObjectLongHashMap<>(checkpoints.size()); // upper bound on the size
         checkpoints.entrySet()
             .stream()
             .filter(e -> e.getValue().inSync && e.getValue().replicated)
@@ -1054,7 +1056,6 @@ public class ReplicationTracker extends AbstractIndexShardComponent implements L
         this.fileBasedRecoveryThreshold = IndexSettings.FILE_BASED_RECOVERY_THRESHOLD_SETTING.get(indexSettings.getSettings());
         this.safeCommitInfoSupplier = safeCommitInfoSupplier;
         this.onReplicationGroupUpdated = onReplicationGroupUpdated;
-        this.latestReplicationCheckpoint = indexSettings.isSegRepEnabled() ? ReplicationCheckpoint.empty(shardId) : null;
         assert Version.V_EMPTY.equals(indexSettings.getIndexVersionCreated()) == false;
         assert invariant();
     }
@@ -1173,18 +1174,13 @@ public class ReplicationTracker extends AbstractIndexShardComponent implements L
         assert handoffInProgress == false;
         assert invariant();
         final CheckpointState cps = checkpoints.get(allocationId);
-        assert !this.shardAllocationId.equals(allocationId);
-        // Ignore if the cps is null (i.e. replica shard not in active state).
-        if (cps == null) {
-            logger.warn("Ignoring the checkpoint update for allocation ID {} as its not being tracked by primary", allocationId);
-            return;
-        }
+        assert !this.shardAllocationId.equals(allocationId) && cps != null;
         if (cps.checkpointTimers.isEmpty() == false) {
             // stop any timers for checkpoints up to the received cp and remove from cps.checkpointTimers.
             // Compute the max lag from the set of completed timers.
             final AtomicLong lastFinished = new AtomicLong(0L);
             cps.checkpointTimers.entrySet().removeIf((entry) -> {
-                boolean result = entry.getKey().isAheadOf(visibleCheckpoint) == false;
+                boolean result = visibleCheckpoint.equals(entry.getKey()) || visibleCheckpoint.isAheadOf(entry.getKey());
                 if (result) {
                     final ReplicationTimer timer = entry.getValue();
                     timer.stop();
@@ -1213,42 +1209,27 @@ public class ReplicationTracker extends AbstractIndexShardComponent implements L
      */
     public synchronized void setLatestReplicationCheckpoint(ReplicationCheckpoint checkpoint) {
         assert indexSettings.isSegRepEnabled();
-        if (checkpoint.equals(latestReplicationCheckpoint) == false) {
-            this.latestReplicationCheckpoint = checkpoint;
-        }
-        if (primaryMode) {
-            startReplicationLagTimers();
-        }
-    }
-
-    public ReplicationCheckpoint getLatestReplicationCheckpoint() {
-        return this.latestReplicationCheckpoint;
-    }
-
-    private void startReplicationLagTimers() {
-        for (Map.Entry<String, CheckpointState> entry : checkpoints.entrySet()) {
-            final String allocationId = entry.getKey();
-            if (allocationId.equals(this.shardAllocationId) == false) {
-                final CheckpointState cps = entry.getValue();
-                // if the shard is in checkpoints but is unavailable or out of sync we will not track its replication state.
-                // it is possible for a shard to be in-sync but not yet removed from the checkpoints collection after a failover event.
-                if (cps.inSync
-                    && replicationGroup.getUnavailableInSyncShards().contains(allocationId) == false
-                    && latestReplicationCheckpoint.isAheadOf(cps.visibleReplicationCheckpoint)) {
-                    cps.checkpointTimers.computeIfAbsent(latestReplicationCheckpoint, ignored -> {
-                        final ReplicationTimer replicationTimer = new ReplicationTimer();
-                        replicationTimer.start();
-                        return replicationTimer;
-                    });
-                    logger.trace(
-                        () -> new ParameterizedMessage(
-                            "updated last published checkpoint for {} at visible cp {} to {} - timers [{}]",
-                            allocationId,
-                            cps.visibleReplicationCheckpoint,
-                            latestReplicationCheckpoint,
-                            cps.checkpointTimers.keySet()
-                        )
-                    );
+        assert primaryMode;
+        assert handoffInProgress == false;
+        if (checkpoint.equals(lastPublishedReplicationCheckpoint) == false) {
+            this.lastPublishedReplicationCheckpoint = checkpoint;
+            for (Map.Entry<String, CheckpointState> entry : checkpoints.entrySet()) {
+                if (entry.getKey().equals(this.shardAllocationId) == false) {
+                    final CheckpointState cps = entry.getValue();
+                    if (cps.inSync) {
+                        cps.checkpointTimers.computeIfAbsent(checkpoint, ignored -> {
+                            final ReplicationTimer replicationTimer = new ReplicationTimer();
+                            replicationTimer.start();
+                            return replicationTimer;
+                        });
+                        logger.trace(
+                            () -> new ParameterizedMessage(
+                                "updated last published checkpoint to {} - timers [{}]",
+                                checkpoint,
+                                cps.checkpointTimers.keySet()
+                            )
+                        );
+                    }
                 }
             }
         }
@@ -1261,17 +1242,12 @@ public class ReplicationTracker extends AbstractIndexShardComponent implements L
      */
     public synchronized Set<SegmentReplicationShardStats> getSegmentReplicationStats() {
         assert indexSettings.isSegRepEnabled();
-        if (primaryMode) {
+        final ReplicationCheckpoint lastPublishedCheckpoint = this.lastPublishedReplicationCheckpoint;
+        if (primaryMode && lastPublishedCheckpoint != null) {
             return this.checkpoints.entrySet()
                 .stream()
-                // filter out this shard's allocation id, any shards that are out of sync or unavailable (shard marked in-sync but has not
-                // been assigned to a node).
-                .filter(
-                    entry -> entry.getKey().equals(this.shardAllocationId) == false
-                        && entry.getValue().inSync
-                        && replicationGroup.getUnavailableInSyncShards().contains(entry.getKey()) == false
-                )
-                .map(entry -> buildShardStats(latestReplicationCheckpoint.getLength(), entry.getKey(), entry.getValue()))
+                .filter(entry -> entry.getKey().equals(this.shardAllocationId) == false && entry.getValue().inSync)
+                .map(entry -> buildShardStats(lastPublishedCheckpoint.getLength(), entry.getKey(), entry.getValue()))
                 .collect(Collectors.toUnmodifiableSet());
         }
         return Collections.emptySet();

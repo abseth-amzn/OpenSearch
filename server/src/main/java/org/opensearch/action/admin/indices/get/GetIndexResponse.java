@@ -32,13 +32,15 @@
 
 package org.opensearch.action.admin.indices.get;
 
+import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import org.opensearch.Version;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.Strings;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.common.collect.ImmutableOpenMap;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.ToXContentObject;
@@ -49,9 +51,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -61,20 +61,20 @@ import java.util.Objects;
  */
 public class GetIndexResponse extends ActionResponse implements ToXContentObject {
 
-    private Map<String, MappingMetadata> mappings = Map.of();
-    private Map<String, List<AliasMetadata>> aliases = Map.of();
-    private Map<String, Settings> settings = Map.of();
-    private Map<String, Settings> defaultSettings = Map.of();
-    private Map<String, String> dataStreams = Map.of();
+    private ImmutableOpenMap<String, MappingMetadata> mappings = ImmutableOpenMap.of();
+    private ImmutableOpenMap<String, List<AliasMetadata>> aliases = ImmutableOpenMap.of();
+    private ImmutableOpenMap<String, Settings> settings = ImmutableOpenMap.of();
+    private ImmutableOpenMap<String, Settings> defaultSettings = ImmutableOpenMap.of();
+    private ImmutableOpenMap<String, String> dataStreams = ImmutableOpenMap.of();
     private final String[] indices;
 
     public GetIndexResponse(
         String[] indices,
-        Map<String, MappingMetadata> mappings,
-        final Map<String, List<AliasMetadata>> aliases,
-        final Map<String, Settings> settings,
-        final Map<String, Settings> defaultSettings,
-        final Map<String, String> dataStreams
+        ImmutableOpenMap<String, MappingMetadata> mappings,
+        ImmutableOpenMap<String, List<AliasMetadata>> aliases,
+        ImmutableOpenMap<String, Settings> settings,
+        ImmutableOpenMap<String, Settings> defaultSettings,
+        ImmutableOpenMap<String, String> dataStreams
     ) {
         this.indices = indices;
         // to have deterministic order
@@ -83,16 +83,16 @@ public class GetIndexResponse extends ActionResponse implements ToXContentObject
             this.mappings = mappings;
         }
         if (aliases != null) {
-            this.aliases = Collections.unmodifiableMap(aliases);
+            this.aliases = aliases;
         }
         if (settings != null) {
-            this.settings = Collections.unmodifiableMap(settings);
+            this.settings = settings;
         }
         if (defaultSettings != null) {
-            this.defaultSettings = Collections.unmodifiableMap(defaultSettings);
+            this.defaultSettings = defaultSettings;
         }
         if (dataStreams != null) {
-            this.dataStreams = Collections.unmodifiableMap(dataStreams);
+            this.dataStreams = dataStreams;
         }
     }
 
@@ -101,7 +101,7 @@ public class GetIndexResponse extends ActionResponse implements ToXContentObject
         this.indices = in.readStringArray();
 
         int mappingsSize = in.readVInt();
-        Map<String, MappingMetadata> mappingsMapBuilder = new HashMap<>();
+        ImmutableOpenMap.Builder<String, MappingMetadata> mappingsMapBuilder = ImmutableOpenMap.builder();
         for (int i = 0; i < mappingsSize; i++) {
             String index = in.readString();
             if (in.getVersion().before(Version.V_2_0_0)) {
@@ -122,10 +122,10 @@ public class GetIndexResponse extends ActionResponse implements ToXContentObject
                 mappingsMapBuilder.put(index, metadata != null ? metadata : MappingMetadata.EMPTY_MAPPINGS);
             }
         }
-        mappings = Collections.unmodifiableMap(mappingsMapBuilder);
+        mappings = mappingsMapBuilder.build();
 
         int aliasesSize = in.readVInt();
-        final Map<String, List<AliasMetadata>> aliasesMapBuilder = new HashMap<>();
+        ImmutableOpenMap.Builder<String, List<AliasMetadata>> aliasesMapBuilder = ImmutableOpenMap.builder();
         for (int i = 0; i < aliasesSize; i++) {
             String key = in.readString();
             int valueSize = in.readVInt();
@@ -135,29 +135,29 @@ public class GetIndexResponse extends ActionResponse implements ToXContentObject
             }
             aliasesMapBuilder.put(key, Collections.unmodifiableList(aliasEntryBuilder));
         }
-        aliases = Collections.unmodifiableMap(aliasesMapBuilder);
+        aliases = aliasesMapBuilder.build();
 
         int settingsSize = in.readVInt();
-        final Map<String, Settings> settingsMapBuilder = new HashMap<>();
+        ImmutableOpenMap.Builder<String, Settings> settingsMapBuilder = ImmutableOpenMap.builder();
         for (int i = 0; i < settingsSize; i++) {
             String key = in.readString();
             settingsMapBuilder.put(key, Settings.readSettingsFromStream(in));
         }
-        settings = Collections.unmodifiableMap(settingsMapBuilder);
+        settings = settingsMapBuilder.build();
 
-        final Map<String, Settings> defaultSettingsMapBuilder = new HashMap<>();
+        ImmutableOpenMap.Builder<String, Settings> defaultSettingsMapBuilder = ImmutableOpenMap.builder();
         int defaultSettingsSize = in.readVInt();
         for (int i = 0; i < defaultSettingsSize; i++) {
             defaultSettingsMapBuilder.put(in.readString(), Settings.readSettingsFromStream(in));
         }
-        defaultSettings = Collections.unmodifiableMap(defaultSettingsMapBuilder);
+        defaultSettings = defaultSettingsMapBuilder.build();
 
-        final Map<String, String> dataStreamsMapBuilder = new HashMap<>();
+        ImmutableOpenMap.Builder<String, String> dataStreamsMapBuilder = ImmutableOpenMap.builder();
         int dataStreamsSize = in.readVInt();
         for (int i = 0; i < dataStreamsSize; i++) {
             dataStreamsMapBuilder.put(in.readString(), in.readOptionalString());
         }
-        dataStreams = Collections.unmodifiableMap(dataStreamsMapBuilder);
+        dataStreams = dataStreamsMapBuilder.build();
     }
 
     public String[] indices() {
@@ -168,31 +168,31 @@ public class GetIndexResponse extends ActionResponse implements ToXContentObject
         return indices();
     }
 
-    public Map<String, MappingMetadata> mappings() {
+    public ImmutableOpenMap<String, MappingMetadata> mappings() {
         return mappings;
     }
 
-    public Map<String, MappingMetadata> getMappings() {
+    public ImmutableOpenMap<String, MappingMetadata> getMappings() {
         return mappings();
     }
 
-    public Map<String, List<AliasMetadata>> aliases() {
+    public ImmutableOpenMap<String, List<AliasMetadata>> aliases() {
         return aliases;
     }
 
-    public Map<String, List<AliasMetadata>> getAliases() {
+    public ImmutableOpenMap<String, List<AliasMetadata>> getAliases() {
         return aliases();
     }
 
-    public Map<String, Settings> settings() {
+    public ImmutableOpenMap<String, Settings> settings() {
         return settings;
     }
 
-    public Map<String, String> dataStreams() {
+    public ImmutableOpenMap<String, String> dataStreams() {
         return dataStreams;
     }
 
-    public Map<String, String> getDataStreams() {
+    public ImmutableOpenMap<String, String> getDataStreams() {
         return dataStreams();
     }
 
@@ -204,11 +204,11 @@ public class GetIndexResponse extends ActionResponse implements ToXContentObject
      * via {@link #settings()}.
      * See also {@link GetIndexRequest#includeDefaults(boolean)}
      */
-    public Map<String, Settings> defaultSettings() {
+    public ImmutableOpenMap<String, Settings> defaultSettings() {
         return defaultSettings;
     }
 
-    public Map<String, Settings> getSettings() {
+    public ImmutableOpenMap<String, Settings> getSettings() {
         return settings();
     }
 
@@ -240,40 +240,40 @@ public class GetIndexResponse extends ActionResponse implements ToXContentObject
     public void writeTo(StreamOutput out) throws IOException {
         out.writeStringArray(indices);
         out.writeVInt(mappings.size());
-        for (final Map.Entry<String, MappingMetadata> indexEntry : mappings.entrySet()) {
-            out.writeString(indexEntry.getKey());
+        for (ObjectObjectCursor<String, MappingMetadata> indexEntry : mappings) {
+            out.writeString(indexEntry.key);
             if (out.getVersion().before(Version.V_2_0_0)) {
-                out.writeVInt(indexEntry.getValue() == MappingMetadata.EMPTY_MAPPINGS ? 0 : 1);
-                if (indexEntry.getValue() != MappingMetadata.EMPTY_MAPPINGS) {
+                out.writeVInt(indexEntry.value == MappingMetadata.EMPTY_MAPPINGS ? 0 : 1);
+                if (indexEntry.value != MappingMetadata.EMPTY_MAPPINGS) {
                     out.writeString(MapperService.SINGLE_MAPPING_NAME);
-                    indexEntry.getValue().writeTo(out);
+                    indexEntry.value.writeTo(out);
                 }
             } else {
-                out.writeOptionalWriteable(indexEntry.getValue());
+                out.writeOptionalWriteable(indexEntry.value);
             }
         }
         out.writeVInt(aliases.size());
-        for (final Map.Entry<String, List<AliasMetadata>> indexEntry : aliases.entrySet()) {
-            out.writeString(indexEntry.getKey());
-            out.writeVInt(indexEntry.getValue().size());
-            for (AliasMetadata aliasEntry : indexEntry.getValue()) {
+        for (ObjectObjectCursor<String, List<AliasMetadata>> indexEntry : aliases) {
+            out.writeString(indexEntry.key);
+            out.writeVInt(indexEntry.value.size());
+            for (AliasMetadata aliasEntry : indexEntry.value) {
                 aliasEntry.writeTo(out);
             }
         }
         out.writeVInt(settings.size());
-        for (final Map.Entry<String, Settings> indexEntry : settings.entrySet()) {
-            out.writeString(indexEntry.getKey());
-            Settings.writeSettingsToStream(indexEntry.getValue(), out);
+        for (ObjectObjectCursor<String, Settings> indexEntry : settings) {
+            out.writeString(indexEntry.key);
+            Settings.writeSettingsToStream(indexEntry.value, out);
         }
         out.writeVInt(defaultSettings.size());
-        for (final Map.Entry<String, Settings> indexEntry : defaultSettings.entrySet()) {
-            out.writeString(indexEntry.getKey());
-            Settings.writeSettingsToStream(indexEntry.getValue(), out);
+        for (ObjectObjectCursor<String, Settings> indexEntry : defaultSettings) {
+            out.writeString(indexEntry.key);
+            Settings.writeSettingsToStream(indexEntry.value, out);
         }
         out.writeVInt(dataStreams.size());
-        for (final Map.Entry<String, String> indexEntry : dataStreams.entrySet()) {
-            out.writeString(indexEntry.getKey());
-            out.writeOptionalString(indexEntry.getValue());
+        for (ObjectObjectCursor<String, String> indexEntry : dataStreams) {
+            out.writeString(indexEntry.key);
+            out.writeOptionalString(indexEntry.value);
         }
     }
 

@@ -32,6 +32,8 @@
 
 package org.opensearch.repositories;
 
+import com.carrotsearch.hppc.ObjectContainer;
+import com.carrotsearch.hppc.cursors.ObjectCursor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -39,8 +41,8 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.EmptyTransportResponseHandler;
@@ -48,12 +50,11 @@ import org.opensearch.transport.TransportChannel;
 import org.opensearch.transport.TransportException;
 import org.opensearch.transport.TransportRequest;
 import org.opensearch.transport.TransportRequestHandler;
-import org.opensearch.core.transport.TransportResponse;
+import org.opensearch.transport.TransportResponse;
 import org.opensearch.transport.TransportService;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -95,9 +96,10 @@ public class VerifyNodeRepositoryAction {
         final DiscoveryNodes discoNodes = clusterService.state().nodes();
         final DiscoveryNode localNode = discoNodes.getLocalNode();
 
-        final Collection<DiscoveryNode> masterAndDataNodes = discoNodes.getClusterManagerAndDataNodes().values();
+        final ObjectContainer<DiscoveryNode> masterAndDataNodes = discoNodes.getClusterManagerAndDataNodes().values();
         final List<DiscoveryNode> nodes = new ArrayList<>();
-        for (final DiscoveryNode node : masterAndDataNodes) {
+        for (ObjectCursor<DiscoveryNode> cursor : masterAndDataNodes) {
+            DiscoveryNode node = cursor.value;
             if (RepositoriesService.isDedicatedVotingOnlyNode(node.getRoles()) == false) {
                 nodes.add(node);
             }

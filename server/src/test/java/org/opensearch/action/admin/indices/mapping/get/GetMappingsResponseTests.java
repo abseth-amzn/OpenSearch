@@ -33,7 +33,8 @@
 package org.opensearch.action.admin.indices.mapping.get;
 
 import org.opensearch.cluster.metadata.MappingMetadata;
-import org.opensearch.core.common.io.stream.Writeable;
+import org.opensearch.common.collect.ImmutableOpenMap;
+import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.test.AbstractWireSerializingTestCase;
 import org.opensearch.test.EqualsHashCodeTestUtils;
@@ -56,11 +57,11 @@ public class GetMappingsResponseTests extends AbstractWireSerializingTestCase<Ge
     }
 
     private static GetMappingsResponse mutate(GetMappingsResponse original) {
-        final Map<String, MappingMetadata> builder = new HashMap<>(original.mappings());
-        String indexKey = original.mappings().keySet().iterator().next();
+        ImmutableOpenMap.Builder<String, MappingMetadata> builder = ImmutableOpenMap.builder(original.mappings());
+        String indexKey = original.mappings().keys().iterator().next().value;
         builder.put(indexKey + "1", createMappingsForIndex());
 
-        return new GetMappingsResponse(builder);
+        return new GetMappingsResponse(builder.build());
     }
 
     @Override
@@ -83,9 +84,9 @@ public class GetMappingsResponseTests extends AbstractWireSerializingTestCase<Ge
 
     @Override
     protected GetMappingsResponse createTestInstance() {
-        final Map<String, MappingMetadata> indexBuilder = new HashMap<>();
+        ImmutableOpenMap.Builder<String, MappingMetadata> indexBuilder = ImmutableOpenMap.builder();
         indexBuilder.put("index-" + randomAlphaOfLength(5), createMappingsForIndex());
-        GetMappingsResponse resp = new GetMappingsResponse(indexBuilder);
+        GetMappingsResponse resp = new GetMappingsResponse(indexBuilder.build());
         logger.debug("--> created: {}", resp);
         return resp;
     }

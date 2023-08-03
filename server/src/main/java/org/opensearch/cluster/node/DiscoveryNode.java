@@ -34,12 +34,12 @@ package org.opensearch.cluster.node;
 
 import org.opensearch.Version;
 import org.opensearch.common.UUIDs;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.core.common.io.stream.Writeable;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.common.transport.TransportAddress;
+import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.core.xcontent.ToXContentFragment;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.node.Node;
@@ -285,7 +285,10 @@ public class DiscoveryNode implements Writeable, ToXContentFragment {
             validateLegacySettings(settings, roleMap);
             return Collections.unmodifiableSet(new HashSet<>(NODE_ROLES_SETTING.get(settings)));
         } else {
-            return roleMap.values().stream().filter(s -> s.isEnabledByDefault(settings)).collect(Collectors.toSet());
+            return roleMap.values()
+                .stream()
+                .filter(s -> s.legacySetting() != null && s.legacySetting().get(settings))
+                .collect(Collectors.toSet());
         }
     }
 
@@ -344,7 +347,7 @@ public class DiscoveryNode implements Writeable, ToXContentFragment {
             }
         }
         this.roles = Collections.unmodifiableSortedSet(new TreeSet<>(roles));
-        this.version = in.readVersion();
+        this.version = Version.readVersion(in);
     }
 
     @Override
@@ -367,7 +370,7 @@ public class DiscoveryNode implements Writeable, ToXContentFragment {
             out.writeString(compatibleRole.roleNameAbbreviation());
             out.writeBoolean(compatibleRole.canContainData());
         }
-        out.writeVersion(version);
+        Version.writeVersion(version, out);
     }
 
     /**

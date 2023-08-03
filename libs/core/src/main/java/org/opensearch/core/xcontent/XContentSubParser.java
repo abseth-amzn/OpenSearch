@@ -35,7 +35,6 @@ package org.opensearch.core.xcontent;
 import org.opensearch.common.CheckedFunction;
 
 import java.io.IOException;
-import java.math.BigInteger;
 import java.nio.CharBuffer;
 import java.util.List;
 import java.util.Map;
@@ -220,12 +219,7 @@ public class XContentSubParser implements XContentParser {
 
     @Override
     public double doubleValue(boolean coerce) throws IOException {
-        return parser.doubleValue(coerce);
-    }
-
-    @Override
-    public BigInteger bigIntegerValue(boolean coerce) throws IOException {
-        return parser.bigIntegerValue(coerce);
+        return parser.doubleValue();
     }
 
     @Override
@@ -251,11 +245,6 @@ public class XContentSubParser implements XContentParser {
     @Override
     public double doubleValue() throws IOException {
         return parser.doubleValue();
-    }
-
-    @Override
-    public BigInteger bigIntegerValue() throws IOException {
-        return parser.bigIntegerValue();
     }
 
     @Override

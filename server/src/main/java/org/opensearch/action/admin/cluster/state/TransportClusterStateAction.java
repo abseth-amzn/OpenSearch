@@ -32,6 +32,7 @@
 
 package org.opensearch.action.admin.cluster.state;
 
+import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
@@ -48,7 +49,7 @@ import org.opensearch.cluster.metadata.Metadata.Custom;
 import org.opensearch.cluster.routing.RoutingTable;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.node.NodeClosedException;
 import org.opensearch.threadpool.ThreadPool;
@@ -56,7 +57,6 @@ import org.opensearch.transport.TransportService;
 
 import java.io.IOException;
 import java.util.function.Predicate;
-import java.util.Map;
 
 /**
  * Transport action for obtaining cluster state
@@ -212,18 +212,18 @@ public class TransportClusterStateAction extends TransportClusterManagerNodeRead
             }
 
             // filter out metadata that shouldn't be returned by the API
-            for (final Map.Entry<String, Custom> custom : currentState.metadata().customs().entrySet()) {
-                if (custom.getValue().context().contains(Metadata.XContentContext.API) == false) {
-                    mdBuilder.removeCustom(custom.getKey());
+            for (ObjectObjectCursor<String, Custom> custom : currentState.metadata().customs()) {
+                if (custom.value.context().contains(Metadata.XContentContext.API) == false) {
+                    mdBuilder.removeCustom(custom.key);
                 }
             }
         }
         builder.metadata(mdBuilder);
 
         if (request.customs()) {
-            for (final Map.Entry<String, ClusterState.Custom> custom : currentState.customs().entrySet()) {
-                if (custom.getValue().isPrivate() == false) {
-                    builder.putCustom(custom.getKey(), custom.getValue());
+            for (ObjectObjectCursor<String, ClusterState.Custom> custom : currentState.customs()) {
+                if (custom.value.isPrivate() == false) {
+                    builder.putCustom(custom.key, custom.value);
                 }
             }
         }

@@ -428,8 +428,6 @@ public class ValueCountAggregatorTests extends AggregatorTestCase {
             case NUMERIC:
             case LONG:
                 return new NumberFieldMapper.NumberFieldType(name, NumberFieldMapper.NumberType.LONG);
-            case UNSIGNED_LONG:
-                return new NumberFieldMapper.NumberFieldType(name, NumberFieldMapper.NumberType.UNSIGNED_LONG);
             case DATE:
                 return new DateFieldMapper.DateFieldType(name);
             case IP:

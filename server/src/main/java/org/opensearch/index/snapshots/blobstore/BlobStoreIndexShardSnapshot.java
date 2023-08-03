@@ -38,13 +38,12 @@ import org.opensearch.OpenSearchParseException;
 import org.opensearch.core.ParseField;
 import org.opensearch.common.Strings;
 import org.opensearch.common.lucene.Lucene;
-import org.opensearch.core.common.unit.ByteSizeValue;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.ToXContentFragment;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.index.snapshots.IndexShardSnapshotStatus;
-import org.opensearch.core.xcontent.XContentParserUtils;
+import org.opensearch.common.xcontent.XContentParserUtils;
 import org.opensearch.index.store.StoreFileMetadata;
 
 import java.io.IOException;
@@ -58,7 +57,7 @@ import java.util.stream.IntStream;
  *
  * @opensearch.internal
  */
-public class BlobStoreIndexShardSnapshot implements ToXContentFragment, IndexShardSnapshot {
+public class BlobStoreIndexShardSnapshot implements ToXContentFragment {
 
     /**
      * Information about snapshotted file
@@ -592,18 +591,5 @@ public class BlobStoreIndexShardSnapshot implements ToXContentFragment, IndexSha
             incrementalFileCount,
             incrementalSize
         );
-    }
-
-    @Override
-    public IndexShardSnapshotStatus getIndexShardSnapshotStatus() {
-        return IndexShardSnapshotStatus.newDone(
-            startTime,
-            time,
-            incrementalFileCount,
-            totalFileCount(),
-            incrementalSize,
-            totalSize(),
-            null
-        ); // Not adding a real generation here as it doesn't matter to callers
     }
 }

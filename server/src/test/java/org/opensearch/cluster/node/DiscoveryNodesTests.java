@@ -36,7 +36,7 @@ import com.carrotsearch.randomizedtesting.generators.RandomPicks;
 import org.opensearch.LegacyESVersion;
 import org.opensearch.Version;
 import org.opensearch.common.settings.Setting;
-import org.opensearch.core.common.transport.TransportAddress;
+import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.util.ArrayList;
@@ -64,7 +64,7 @@ public class DiscoveryNodesTests extends OpenSearchTestCase {
 
     public void testResolveNodeByIdOrName() {
         DiscoveryNodes discoveryNodes = buildDiscoveryNodes();
-        DiscoveryNode[] nodes = discoveryNodes.getNodes().values().toArray(new DiscoveryNode[0]);
+        DiscoveryNode[] nodes = discoveryNodes.getNodes().values().toArray(DiscoveryNode.class);
         DiscoveryNode node = randomFrom(nodes);
         DiscoveryNode resolvedNode = discoveryNodes.resolveNode(randomBoolean() ? node.getId() : node.getName());
         assertThat(resolvedNode.getId(), equalTo(node.getId()));
@@ -109,6 +109,7 @@ public class DiscoveryNodesTests extends OpenSearchTestCase {
         assertThat(discoveryNodes.resolveNodes("_all"), arrayContainingInAnyOrder(allNodes));
 
         final String[] nonClusterManagerNodes = StreamSupport.stream(discoveryNodes.getNodes().values().spliterator(), false)
+            .map(n -> n.value)
             .filter(n -> n.isClusterManagerNode() == false)
             .map(DiscoveryNode::getId)
             .toArray(String[]::new);
@@ -121,11 +122,13 @@ public class DiscoveryNodesTests extends OpenSearchTestCase {
         final DiscoveryNodes discoveryNodes = buildDiscoveryNodes();
 
         final String[] coordinatorOnlyNodes = StreamSupport.stream(discoveryNodes.getNodes().values().spliterator(), false)
+            .map(n -> n.value)
             .filter(n -> n.isDataNode() == false && n.isIngestNode() == false && n.isClusterManagerNode() == false)
             .map(DiscoveryNode::getId)
             .toArray(String[]::new);
 
         final String[] nonCoordinatorOnlyNodes = StreamSupport.stream(discoveryNodes.getNodes().values().spliterator(), false)
+            .map(n -> n.value)
             .filter(n -> n.isClusterManagerNode() || n.isDataNode() || n.isIngestNode())
             .map(DiscoveryNode::getId)
             .toArray(String[]::new);
@@ -151,14 +154,14 @@ public class DiscoveryNodesTests extends OpenSearchTestCase {
             }
         }
         int numNodeIds = randomIntBetween(0, 3);
-        String[] nodeIds = discoveryNodes.getNodes().keySet().toArray(new String[0]);
+        String[] nodeIds = discoveryNodes.getNodes().keys().toArray(String.class);
         for (int i = 0; i < numNodeIds; i++) {
             String nodeId = randomFrom(nodeIds);
             nodeSelectors.add(nodeId);
             expectedNodeIdsSet.add(nodeId);
         }
         int numNodeNames = randomIntBetween(0, 3);
-        DiscoveryNode[] nodes = discoveryNodes.getNodes().values().toArray(new DiscoveryNode[0]);
+        DiscoveryNode[] nodes = discoveryNodes.getNodes().values().toArray(DiscoveryNode.class);
         for (int i = 0; i < numNodeNames; i++) {
             DiscoveryNode discoveryNode = randomFrom(nodes);
             nodeSelectors.add(discoveryNode.getName());
@@ -312,11 +315,13 @@ public class DiscoveryNodesTests extends OpenSearchTestCase {
             .toArray(String[]::new);
 
         final String[] clusterManagerNodes = StreamSupport.stream(discoveryNodes.getNodes().values().spliterator(), false)
+            .map(n -> n.value)
             .filter(n -> n.isClusterManagerNode() == true)
             .map(DiscoveryNode::getId)
             .toArray(String[]::new);
 
         final String[] nonClusterManagerNodes = StreamSupport.stream(discoveryNodes.getNodes().values().spliterator(), false)
+            .map(n -> n.value)
             .filter(n -> n.isClusterManagerNode() == false)
             .map(DiscoveryNode::getId)
             .toArray(String[]::new);
@@ -387,7 +392,7 @@ public class DiscoveryNodesTests extends OpenSearchTestCase {
             @Override
             Set<String> matchingNodeIds(DiscoveryNodes nodes) {
                 Set<String> ids = new HashSet<>();
-                nodes.getClusterManagerNodes().keySet().iterator().forEachRemaining(ids::add);
+                nodes.getClusterManagerNodes().keysIt().forEachRemaining(ids::add);
                 return ids;
             }
         },
@@ -395,7 +400,7 @@ public class DiscoveryNodesTests extends OpenSearchTestCase {
             @Override
             Set<String> matchingNodeIds(DiscoveryNodes nodes) {
                 Set<String> ids = new HashSet<>();
-                nodes.getClusterManagerNodes().keySet().iterator().forEachRemaining(ids::add);
+                nodes.getClusterManagerNodes().keysIt().forEachRemaining(ids::add);
                 return ids;
             }
         },
@@ -403,7 +408,7 @@ public class DiscoveryNodesTests extends OpenSearchTestCase {
             @Override
             Set<String> matchingNodeIds(DiscoveryNodes nodes) {
                 Set<String> ids = new HashSet<>();
-                nodes.getDataNodes().keySet().iterator().forEachRemaining(ids::add);
+                nodes.getDataNodes().keysIt().forEachRemaining(ids::add);
                 return ids;
             }
         },
@@ -411,7 +416,7 @@ public class DiscoveryNodesTests extends OpenSearchTestCase {
             @Override
             Set<String> matchingNodeIds(DiscoveryNodes nodes) {
                 Set<String> ids = new HashSet<>();
-                nodes.getIngestNodes().keySet().iterator().forEachRemaining(ids::add);
+                nodes.getIngestNodes().keysIt().forEachRemaining(ids::add);
                 return ids;
             }
         },
@@ -419,7 +424,7 @@ public class DiscoveryNodesTests extends OpenSearchTestCase {
             @Override
             Set<String> matchingNodeIds(DiscoveryNodes nodes) {
                 Set<String> ids = new HashSet<>();
-                nodes.getCoordinatingOnlyNodes().keySet().iterator().forEachRemaining(ids::add);
+                nodes.getCoordinatingOnlyNodes().keysIt().forEachRemaining(ids::add);
                 return ids;
             }
         },
@@ -427,7 +432,7 @@ public class DiscoveryNodesTests extends OpenSearchTestCase {
             @Override
             Set<String> matchingNodeIds(DiscoveryNodes nodes) {
                 Set<String> ids = new HashSet<>();
-                nodes.getNodes().values().iterator().forEachRemaining(node -> {
+                nodes.getNodes().valuesIt().forEachRemaining(node -> {
                     if ("value".equals(node.getAttributes().get("attr"))) {
                         ids.add(node.getId());
                     }
@@ -439,7 +444,7 @@ public class DiscoveryNodesTests extends OpenSearchTestCase {
             @Override
             Set<String> matchingNodeIds(DiscoveryNodes nodes) {
                 Set<String> ids = new HashSet<>();
-                nodes.getNodes().values().iterator().forEachRemaining(node -> {
+                nodes.getNodes().valuesIt().forEachRemaining(node -> {
                     if (node.getRoles().stream().anyMatch(role -> role.roleName().equals("custom_role"))) {
                         ids.add(node.getId());
                     }

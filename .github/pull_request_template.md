@@ -8,9 +8,8 @@
 ### Description
 [Describe what this change achieves]
 
-### Related Issues
-Resolves #[Issue number to be closed when this PR is merged]
-<!-- List any other related issues here -->
+### Issues Resolved
+[List any issues this PR will resolve]
 
 ### Check List
 - [ ] New functionality includes testing.

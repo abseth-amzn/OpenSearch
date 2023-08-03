@@ -43,7 +43,6 @@ import java.util.List;
 import java.util.function.Function;
 
 interface AwsEc2Service extends Closeable {
-
     Setting<Boolean> AUTO_ATTRIBUTE_SETTING = Setting.boolSetting("cloud.node.auto_attributes", false, Property.NodeScope);
 
     class HostType {
@@ -116,7 +115,7 @@ interface AwsEc2Service extends Closeable {
      * settings. Returns an {@code AmazonEc2Reference} wrapper which should be
      * released as soon as it is not required anymore.
      */
-    AmazonEc2ClientReference client();
+    AmazonEc2Reference client();
 
     /**
      * Updates the settings for building the client and releases the cached one.
@@ -126,4 +125,5 @@ interface AwsEc2Service extends Closeable {
      * @param clientSettings the new refreshed settings
      */
     void refreshAndClearCache(Ec2ClientSettings clientSettings);
+
 }

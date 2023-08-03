@@ -43,13 +43,12 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.NoMergePolicy;
-import org.apache.lucene.index.StoredFields;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.TermInSetQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.BytesRef;
-import org.opensearch.common.util.io.IOUtils;
+import org.opensearch.core.internal.io.IOUtils;
 import org.opensearch.common.lucene.search.Queries;
 import org.opensearch.common.util.BigArrays;
 import org.opensearch.test.OpenSearchTestCase;
@@ -150,10 +149,9 @@ public class FreqTermsEnumTests extends OpenSearchTestCase {
 
         // now go over each doc, build the relevant references and filter
         reader = DirectoryReader.open(iw);
-        StoredFields storedFields = reader.storedFields();
         List<BytesRef> filterTerms = new ArrayList<>();
         for (int docId = 0; docId < reader.maxDoc(); docId++) {
-            Document doc = storedFields.document(docId);
+            Document doc = reader.document(docId);
             addFreqs(doc, referenceAll);
             if (!deletedIds.contains(doc.getField("id").stringValue())) {
                 addFreqs(doc, referenceNotDeleted);

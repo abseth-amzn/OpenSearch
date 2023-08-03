@@ -10,7 +10,6 @@ package org.opensearch.index.engine;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.search.QueryCache;
 import org.apache.lucene.search.QueryCachingPolicy;
@@ -25,19 +24,18 @@ import org.opensearch.index.codec.CodecServiceConfig;
 import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.seqno.RetentionLeases;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.index.store.Store;
 import org.opensearch.index.translog.TranslogConfig;
 import org.opensearch.index.translog.TranslogDeletionPolicyFactory;
 import org.opensearch.index.translog.TranslogFactory;
-import org.opensearch.core.indices.breaker.CircuitBreakerService;
+import org.opensearch.indices.breaker.CircuitBreakerService;
 import org.opensearch.plugins.EnginePlugin;
 import org.opensearch.plugins.PluginsService;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
@@ -153,8 +151,7 @@ public class EngineConfigFactory {
         EngineConfig.TombstoneDocSupplier tombstoneDocSupplier,
         boolean isReadOnlyReplica,
         BooleanSupplier primaryModeSupplier,
-        TranslogFactory translogFactory,
-        Comparator<LeafReader> leafSorter
+        TranslogFactory translogFactory
     ) {
         CodecService codecServiceToUse = codecService;
         if (codecService == null && this.codecServiceFactory != null) {
@@ -187,7 +184,6 @@ public class EngineConfigFactory {
             .readOnlyReplica(isReadOnlyReplica)
             .primaryModeSupplier(primaryModeSupplier)
             .translogFactory(translogFactory)
-            .leafSorter(leafSorter)
             .build();
     }
 

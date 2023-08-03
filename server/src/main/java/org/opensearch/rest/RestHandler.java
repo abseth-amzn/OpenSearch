@@ -184,8 +184,8 @@ public interface RestHandler {
      */
     class Route {
 
-        protected final String path;
-        protected final Method method;
+        private final String path;
+        private final Method method;
 
         public Route(Method method, String path) {
             this.path = path;
@@ -196,36 +196,8 @@ public interface RestHandler {
             return path;
         }
 
-        public String getPathWithPathParamsReplaced() {
-            return path.replaceAll("(?<=\\{).*?(?=\\})", "path_param");
-        }
-
         public Method getMethod() {
             return method;
-        }
-
-        @Override
-        public int hashCode() {
-            String routeStr = "Route [method=" + method + ", path=" + getPathWithPathParamsReplaced() + "]";
-            return routeStr.hashCode();
-        }
-
-        @Override
-        public String toString() {
-            return "Route [method=" + method + ", path=" + path + "]";
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            Route that = (Route) o;
-            return Objects.equals(method, that.method)
-                && Objects.equals(getPathWithPathParamsReplaced(), that.getPathWithPathParamsReplaced());
         }
     }
 

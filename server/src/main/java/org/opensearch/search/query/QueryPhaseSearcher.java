@@ -10,8 +10,6 @@ package org.opensearch.search.query;
 
 import org.apache.lucene.search.CollectorManager;
 import org.apache.lucene.search.Query;
-import org.opensearch.search.aggregations.AggregationProcessor;
-import org.opensearch.search.aggregations.DefaultAggregationProcessor;
 import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.internal.SearchContext;
 
@@ -42,13 +40,4 @@ public interface QueryPhaseSearcher {
         boolean hasFilterCollector,
         boolean hasTimeout
     ) throws IOException;
-
-    /**
-     * {@link AggregationProcessor} to use to setup and post process aggregation related collectors during search request
-     * @param searchContext search context
-     * @return {@link AggregationProcessor} to use
-     */
-    default AggregationProcessor aggregationProcessor(SearchContext searchContext) {
-        return new DefaultAggregationProcessor();
-    }
 }

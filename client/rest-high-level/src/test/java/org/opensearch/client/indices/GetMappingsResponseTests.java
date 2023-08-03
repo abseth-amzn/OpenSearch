@@ -34,6 +34,7 @@ package org.opensearch.client.indices;
 
 import org.opensearch.client.AbstractResponseTestCase;
 import org.opensearch.cluster.metadata.MappingMetadata;
+import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.mapper.MapperService;
@@ -49,12 +50,12 @@ public class GetMappingsResponseTests extends AbstractResponseTestCase<
 
     @Override
     protected org.opensearch.action.admin.indices.mapping.get.GetMappingsResponse createServerTestInstance(XContentType xContentType) {
-        final Map<String, MappingMetadata> mappings = new HashMap<>();
+        ImmutableOpenMap.Builder<String, MappingMetadata> mappings = ImmutableOpenMap.builder();
         int numberOfIndexes = randomIntBetween(1, 5);
         for (int i = 0; i < numberOfIndexes; i++) {
             mappings.put("index-" + randomAlphaOfLength(5), randomMappingMetadata());
         }
-        return new org.opensearch.action.admin.indices.mapping.get.GetMappingsResponse(mappings);
+        return new org.opensearch.action.admin.indices.mapping.get.GetMappingsResponse(mappings.build());
     }
 
     @Override
@@ -67,7 +68,7 @@ public class GetMappingsResponseTests extends AbstractResponseTestCase<
         org.opensearch.action.admin.indices.mapping.get.GetMappingsResponse serverTestInstance,
         GetMappingsResponse clientInstance
     ) {
-        assertEquals(serverTestInstance.getMappings(), clientInstance.mappings());
+        assertMapEquals(serverTestInstance.getMappings(), clientInstance.mappings());
     }
 
     public static MappingMetadata randomMappingMetadata() {

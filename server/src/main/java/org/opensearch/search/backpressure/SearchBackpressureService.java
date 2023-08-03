@@ -13,7 +13,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.action.search.SearchShardTask;
 import org.opensearch.action.search.SearchTask;
-import org.opensearch.common.lifecycle.AbstractLifecycleComponent;
+import org.opensearch.common.component.AbstractLifecycleComponent;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.monitor.jvm.JvmStats;
@@ -197,7 +197,7 @@ public class SearchBackpressureService extends AbstractLifecycleComponent implem
         }
 
         for (TaskCancellation taskCancellation : getTaskCancellations(cancellableTasks)) {
-            logger.warn(
+            logger.debug(
                 "[{} mode] cancelling task [{}] due to high resource consumption [{}]",
                 mode.getName(),
                 taskCancellation.getTask().getId(),

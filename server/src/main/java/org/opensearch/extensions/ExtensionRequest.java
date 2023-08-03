@@ -11,14 +11,13 @@ package org.opensearch.extensions;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.common.Nullable;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.extensions.proto.ExtensionIdentityProto;
-import org.opensearch.extensions.proto.ExtensionRequestProto;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.transport.TransportRequest;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * CLusterService Request for Extensibility
@@ -27,45 +26,42 @@ import java.util.Objects;
  */
 public class ExtensionRequest extends TransportRequest {
     private static final Logger logger = LogManager.getLogger(ExtensionRequest.class);
-    private final ExtensionRequestProto.ExtensionRequest request;
+    private final ExtensionsManager.RequestType requestType;
+    private final Optional<String> uniqueId;
 
-    public ExtensionRequest(ExtensionRequestProto.RequestType requestType) {
+    public ExtensionRequest(ExtensionsManager.RequestType requestType) {
         this(requestType, null);
     }
 
-    public ExtensionRequest(ExtensionRequestProto.RequestType requestType, @Nullable String uniqueId) {
-        ExtensionRequestProto.ExtensionRequest.Builder builder = ExtensionRequestProto.ExtensionRequest.newBuilder();
-        if (uniqueId != null) {
-            builder.setIdentity(ExtensionIdentityProto.ExtensionIdentity.newBuilder().setUniqueId(uniqueId).build());
-        }
-        this.request = builder.setRequestType(requestType).build();
+    public ExtensionRequest(ExtensionsManager.RequestType requestType, @Nullable String uniqueId) {
+        this.requestType = requestType;
+        this.uniqueId = uniqueId == null ? Optional.empty() : Optional.of(uniqueId);
     }
 
     public ExtensionRequest(StreamInput in) throws IOException {
         super(in);
-        this.request = ExtensionRequestProto.ExtensionRequest.parseFrom(in.readByteArray());
+        this.requestType = in.readEnum(ExtensionsManager.RequestType.class);
+        String id = in.readOptionalString();
+        this.uniqueId = id == null ? Optional.empty() : Optional.of(id);
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        out.writeByteArray(request.toByteArray());
+        out.writeEnum(requestType);
+        out.writeOptionalString(uniqueId.orElse(null));
     }
 
-    public ExtensionRequestProto.RequestType getRequestType() {
-        return this.request.getRequestType();
+    public ExtensionsManager.RequestType getRequestType() {
+        return this.requestType;
     }
 
-    public String getUniqueId() {
-        return request.getIdentity().getUniqueId();
+    public Optional<String> getUniqueId() {
+        return uniqueId;
     }
 
     public String toString() {
-        return "ExtensionRequest{" + request.toString() + '}';
-    }
-
-    public ExtensionIdentityProto.ExtensionIdentity getExtensionIdentity() {
-        return request.getIdentity();
+        return "ExtensionRequest{" + "requestType=" + requestType + "uniqueId=" + uniqueId + '}';
     }
 
     @Override
@@ -73,12 +69,11 @@ public class ExtensionRequest extends TransportRequest {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         ExtensionRequest that = (ExtensionRequest) o;
-        return Objects.equals(request.getRequestType(), that.request.getRequestType())
-            && Objects.equals(request.getIdentity().getUniqueId(), that.request.getIdentity().getUniqueId());
+        return Objects.equals(requestType, that.requestType) && Objects.equals(uniqueId, that.uniqueId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(request.getRequestType(), request.getIdentity().getUniqueId());
+        return Objects.hash(requestType, uniqueId);
     }
 }

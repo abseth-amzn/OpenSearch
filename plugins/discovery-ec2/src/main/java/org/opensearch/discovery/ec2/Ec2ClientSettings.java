@@ -32,20 +32,21 @@
 
 package org.opensearch.discovery.ec2;
 
+import com.amazonaws.ClientConfiguration;
+import com.amazonaws.Protocol;
+import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.BasicSessionCredentials;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.common.logging.DeprecationLogger;
 import org.opensearch.common.settings.SecureSetting;
-import org.opensearch.core.common.settings.SecureString;
+import org.opensearch.common.settings.SecureString;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Setting.Property;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.settings.SettingsException;
 import org.opensearch.common.unit.TimeValue;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.AwsCredentials;
-import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
-import software.amazon.awssdk.core.Protocol;
 
 import java.util.Locale;
 
@@ -77,16 +78,7 @@ final class Ec2ClientSettings {
         Property.NodeScope
     );
 
-    /** An override for the scoping region for authentication. */
-    static final Setting<String> REGION_SETTING = new Setting<>(
-        "discovery.ec2.region",
-        "",
-        s -> s.toLowerCase(Locale.ROOT),
-        Property.NodeScope
-    );
-
-    /** The protocol to use to connect to ec2. AWS SDKv2 only supports HTTPs, deprecated in 3.0. */
-    @Deprecated
+    /** The protocol to use to connect to to ec2. */
     static final Setting<Protocol> PROTOCOL_SETTING = new Setting<>(
         "discovery.ec2.protocol",
         "https",
@@ -103,7 +95,7 @@ final class Ec2ClientSettings {
     /** The socket timeout for connecting to s3. */
     static final Setting<TimeValue> READ_TIMEOUT_SETTING = Setting.timeSetting(
         "discovery.ec2.read_timeout",
-        TimeValue.timeValueMillis(50_000),
+        TimeValue.timeValueMillis(ClientConfiguration.DEFAULT_SOCKET_TIMEOUT),
         Property.NodeScope
     );
 
@@ -112,18 +104,13 @@ final class Ec2ClientSettings {
     private static final DeprecationLogger deprecationLogger = DeprecationLogger.getLogger(Ec2ClientSettings.class);
 
     /** Credentials to authenticate with ec2. */
-    final AwsCredentials credentials;
+    final AWSCredentials credentials;
 
     /**
      * The ec2 endpoint the client should talk to, or empty string to use the
      * default.
      */
     final String endpoint;
-
-    /**
-     * The ec2 signing region.
-     */
-    final String region;
 
     /** The protocol to use to talk to ec2. Defaults to https. */
     final Protocol protocol;
@@ -147,9 +134,8 @@ final class Ec2ClientSettings {
     final int readTimeoutMillis;
 
     protected Ec2ClientSettings(
-        AwsCredentials credentials,
+        AWSCredentials credentials,
         String endpoint,
-        String region,
         Protocol protocol,
         String proxyHost,
         int proxyPort,
@@ -159,7 +145,6 @@ final class Ec2ClientSettings {
     ) {
         this.credentials = credentials;
         this.endpoint = endpoint;
-        this.region = region;
         this.protocol = protocol;
         this.proxyHost = proxyHost;
         this.proxyPort = proxyPort;
@@ -168,7 +153,7 @@ final class Ec2ClientSettings {
         this.readTimeoutMillis = readTimeoutMillis;
     }
 
-    static AwsCredentials loadCredentials(Settings settings) {
+    static AWSCredentials loadCredentials(Settings settings) {
         try (
             SecureString key = ACCESS_KEY_SETTING.get(settings);
             SecureString secret = SECRET_KEY_SETTING.get(settings);
@@ -188,37 +173,39 @@ final class Ec2ClientSettings {
                 return null;
             } else {
                 if (key.length() == 0) {
-                    throw new SettingsException(
-                        "Setting [{}] is set but [{}] is not",
+                    deprecationLogger.deprecate(
+                        "ec2_invalid_key_settings",
+                        "Setting [{}] is set but [{}] is not, which will be unsupported in future",
                         SECRET_KEY_SETTING.getKey(),
-                        ACCESS_KEY_SETTING.getKey(),
-                        SECRET_KEY_SETTING.getKey()
+                        ACCESS_KEY_SETTING.getKey()
                     );
                 }
                 if (secret.length() == 0) {
-                    throw new SettingsException(
-                        "Setting [{}] is set but [{}] is not",
+                    deprecationLogger.deprecate(
+                        "ec2_invalid_settings",
+                        "Setting [{}] is set but [{}] is not, which will be unsupported in future",
                         ACCESS_KEY_SETTING.getKey(),
                         SECRET_KEY_SETTING.getKey()
                     );
                 }
 
-                final AwsCredentials credentials;
+                final AWSCredentials credentials;
                 if (sessionToken.length() == 0) {
                     logger.debug("Using basic key/secret credentials");
-                    credentials = AwsBasicCredentials.create(key.toString(), secret.toString());
+                    credentials = new BasicAWSCredentials(key.toString(), secret.toString());
                 } else {
                     logger.debug("Using basic session credentials");
-                    credentials = AwsSessionCredentials.create(key.toString(), secret.toString(), sessionToken.toString());
+                    credentials = new BasicSessionCredentials(key.toString(), secret.toString(), sessionToken.toString());
                 }
                 return credentials;
             }
         }
     }
 
+    // pkg private for tests
     /** Parse settings for a single client. */
     static Ec2ClientSettings getClientSettings(Settings settings) {
-        final AwsCredentials credentials = loadCredentials(settings);
+        final AWSCredentials credentials = loadCredentials(settings);
         try (
             SecureString proxyUsername = PROXY_USERNAME_SETTING.get(settings);
             SecureString proxyPassword = PROXY_PASSWORD_SETTING.get(settings)
@@ -226,7 +213,6 @@ final class Ec2ClientSettings {
             return new Ec2ClientSettings(
                 credentials,
                 ENDPOINT_SETTING.get(settings),
-                REGION_SETTING.get(settings),
                 PROTOCOL_SETTING.get(settings),
                 PROXY_HOST_SETTING.get(settings),
                 PROXY_PORT_SETTING.get(settings),
@@ -236,4 +222,5 @@ final class Ec2ClientSettings {
             );
         }
     }
+
 }

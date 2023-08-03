@@ -46,7 +46,7 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
-import org.opensearch.core.rest.RestStatus;
+import org.opensearch.rest.RestStatus;
 import org.opensearch.search.rescore.QueryRescorerBuilder;
 import org.opensearch.search.sort.SortOrder;
 import org.opensearch.test.OpenSearchIntegTestCase;
@@ -99,7 +99,7 @@ public class SimpleSearchIT extends OpenSearchIntegTestCase {
         int iters = scaledRandomIntBetween(10, 20);
         for (int i = 0; i < iters; i++) {
             String randomPreference = randomUnicodeOfLengthBetween(0, 4);
-            // randomPreference should not start with '_' (reserved for known preference types (e.g. _shards, _primary)
+            // randomPreference should not start with '_' (reserved for known preference types (e.g. _shards)
             while (randomPreference.startsWith("_")) {
                 randomPreference = randomUnicodeOfLengthBetween(0, 4);
             }

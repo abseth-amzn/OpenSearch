@@ -45,13 +45,14 @@ import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.routing.RoutingTable;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Priority;
+import org.opensearch.common.Strings;
 import org.opensearch.common.UUIDs;
-import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.common.collect.ImmutableOpenMap;
+import org.opensearch.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.common.unit.ByteSizeValue;
-import org.opensearch.core.common.Strings;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -64,6 +65,7 @@ import org.opensearch.plugins.Plugin;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.script.ScriptService;
 import org.opensearch.test.OpenSearchIntegTestCase;
+import org.opensearch.test.hamcrest.CollectionAssertions;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.watcher.ResourceWatcherService;
 
@@ -74,7 +76,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
@@ -82,7 +83,6 @@ import static org.opensearch.gateway.GatewayService.STATE_NOT_RECOVERED_BLOCK;
 import static org.opensearch.test.hamcrest.OpenSearchAssertions.assertAcked;
 import static org.opensearch.test.hamcrest.OpenSearchAssertions.assertIndexTemplateExists;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
@@ -238,14 +238,14 @@ public class SimpleClusterStateIT extends OpenSearchIntegTestCase {
             .setIndices(indices)
             .get();
 
-        final Map<String, IndexMetadata> metadata = clusterState.getState().getMetadata().indices();
+        ImmutableOpenMap<String, IndexMetadata> metadata = clusterState.getState().getMetadata().indices();
         assertThat(metadata.size(), is(expected.length));
 
         RoutingTable routingTable = clusterState.getState().getRoutingTable();
         assertThat(routingTable.indicesRouting().size(), is(expected.length));
 
-        for (final String expectedIndex : expected) {
-            assertThat(metadata, hasKey(expectedIndex));
+        for (String expectedIndex : expected) {
+            assertThat(metadata, CollectionAssertions.hasKey(expectedIndex));
             assertThat(routingTable.hasIndex(expectedIndex), is(true));
         }
     }

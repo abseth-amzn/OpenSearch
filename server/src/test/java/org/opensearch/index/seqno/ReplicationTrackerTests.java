@@ -32,10 +32,8 @@
 
 package org.opensearch.index.seqno;
 
-import org.apache.lucene.codecs.Codec;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.replication.ReplicationResponse;
-import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.routing.AllocationId;
 import org.opensearch.cluster.routing.IndexShardRoutingTable;
 import org.opensearch.cluster.routing.ShardRouting;
@@ -44,12 +42,12 @@ import org.opensearch.cluster.routing.TestShardRouting;
 import org.opensearch.common.Randomness;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.set.Sets;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.SegmentReplicationShardStats;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.indices.replication.checkpoint.ReplicationCheckpoint;
 import org.opensearch.indices.replication.common.ReplicationType;
 import org.opensearch.test.IndexSettingsModule;
@@ -1293,10 +1291,7 @@ public class ReplicationTrackerTests extends ReplicationTrackerTestCase {
         assertThat(allocations.size(), equalTo(active.size() + initializing.size()));
 
         final AllocationId primaryId = active.iterator().next();
-        Settings settings = Settings.builder()
-            .put(IndexMetadata.SETTING_REPLICATION_TYPE, ReplicationType.SEGMENT)
-            .put(IndexMetadata.SETTING_REMOTE_STORE_ENABLED, "true")
-            .build();
+        Settings settings = Settings.builder().put("index.remote_store.translog.enabled", "true").build();
         final ReplicationTracker tracker = newTracker(primaryId, settings);
         assertThat(tracker.getGlobalCheckpoint(), equalTo(UNASSIGNED_SEQ_NO));
 
@@ -1371,10 +1366,7 @@ public class ReplicationTrackerTests extends ReplicationTrackerTestCase {
         assertThat(allocations.size(), equalTo(active.size() + initializing.size()));
 
         final AllocationId primaryId = active.iterator().next();
-        Settings settings = Settings.builder()
-            .put(IndexMetadata.SETTING_REPLICATION_TYPE, ReplicationType.SEGMENT)
-            .put(IndexMetadata.SETTING_REMOTE_STORE_ENABLED, "true")
-            .build();
+        Settings settings = Settings.builder().put("index.remote_store.translog.enabled", "true").build();
         final ReplicationTracker tracker = newTracker(primaryId, settings);
         assertThat(tracker.getGlobalCheckpoint(), equalTo(UNASSIGNED_SEQ_NO));
 
@@ -1444,10 +1436,7 @@ public class ReplicationTrackerTests extends ReplicationTrackerTestCase {
      */
     public void testUpdateGlobalCheckpointOnReplicaWithRemoteTranslogEnabled() {
         final AllocationId active = AllocationId.newInitializing();
-        Settings settings = Settings.builder()
-            .put(IndexMetadata.SETTING_REPLICATION_TYPE, ReplicationType.SEGMENT)
-            .put(IndexMetadata.SETTING_REMOTE_STORE_ENABLED, "true")
-            .build();
+        Settings settings = Settings.builder().put("index.remote_store.translog.enabled", "true").build();
         final ReplicationTracker tracker = newTracker(active, settings);
         final long globalCheckpoint = randomLongBetween(NO_OPS_PERFORMED, Long.MAX_VALUE - 1);
         tracker.updateGlobalCheckpointOnReplica(globalCheckpoint, "test");
@@ -1469,10 +1458,7 @@ public class ReplicationTrackerTests extends ReplicationTrackerTestCase {
         Set<AllocationId> initializing = new HashSet<>(initializingWithCheckpoints.keySet());
         final AllocationId primaryId = active.iterator().next();
         final AllocationId replicaId = initializing.iterator().next();
-        Settings settings = Settings.builder()
-            .put(IndexMetadata.SETTING_REPLICATION_TYPE, ReplicationType.SEGMENT)
-            .put(IndexMetadata.SETTING_REMOTE_STORE_ENABLED, "true")
-            .build();
+        Settings settings = Settings.builder().put("index.remote_store.translog.enabled", "true").build();
         final ReplicationTracker tracker = newTracker(primaryId, settings);
         tracker.updateFromClusterManager(initialClusterStateVersion, ids(active), routingTable(initializing, primaryId));
         final long localCheckpoint = randomLongBetween(0, Long.MAX_VALUE - 1);
@@ -1497,10 +1483,7 @@ public class ReplicationTrackerTests extends ReplicationTrackerTestCase {
         assigned.putAll(active);
         assigned.putAll(initializing);
         AllocationId primaryId = active.keySet().iterator().next();
-        Settings settings = Settings.builder()
-            .put(IndexMetadata.SETTING_REPLICATION_TYPE, ReplicationType.SEGMENT)
-            .put(IndexMetadata.SETTING_REMOTE_STORE_ENABLED, "true")
-            .build();
+        Settings settings = Settings.builder().put("index.remote_store.translog.enabled", "true").build();
         final ReplicationTracker tracker = newTracker(primaryId, settings);
         tracker.updateFromClusterManager(randomNonNegativeLong(), ids(active.keySet()), routingTable(initializing.keySet(), primaryId));
         tracker.activatePrimaryMode(NO_OPS_PERFORMED);
@@ -1530,10 +1513,7 @@ public class ReplicationTrackerTests extends ReplicationTrackerTestCase {
         logger.info("active: {}, initializing: {}", active, initializing);
 
         AllocationId primaryId = active.keySet().iterator().next();
-        Settings settings = Settings.builder()
-            .put(IndexMetadata.SETTING_REPLICATION_TYPE, ReplicationType.SEGMENT)
-            .put(IndexMetadata.SETTING_REMOTE_STORE_ENABLED, "true")
-            .build();
+        Settings settings = Settings.builder().put("index.remote_store.translog.enabled", "true").build();
         final ReplicationTracker tracker = newTracker(primaryId, settings);
         tracker.updateFromClusterManager(randomNonNegativeLong(), ids(active.keySet()), routingTable(initializing.keySet(), primaryId));
         tracker.activatePrimaryMode(NO_OPS_PERFORMED);
@@ -1558,10 +1538,7 @@ public class ReplicationTrackerTests extends ReplicationTrackerTestCase {
         final Map<AllocationId, Long> initializing = randomAllocationsWithLocalCheckpoints(1, 5);
         final Map<AllocationId, Long> nonApproved = randomAllocationsWithLocalCheckpoints(1, 5);
         final AllocationId primaryId = active.keySet().iterator().next();
-        Settings settings = Settings.builder()
-            .put(IndexMetadata.SETTING_REPLICATION_TYPE, ReplicationType.SEGMENT)
-            .put(IndexMetadata.SETTING_REMOTE_STORE_ENABLED, "true")
-            .build();
+        Settings settings = Settings.builder().put("index.remote_store.translog.enabled", "true").build();
         final ReplicationTracker tracker = newTracker(primaryId, settings);
         tracker.updateFromClusterManager(randomNonNegativeLong(), ids(active.keySet()), routingTable(initializing.keySet(), primaryId));
         tracker.activatePrimaryMode(NO_OPS_PERFORMED);
@@ -1599,10 +1576,7 @@ public class ReplicationTrackerTests extends ReplicationTrackerTestCase {
         if (randomBoolean()) {
             allocations.putAll(initializingToBeRemoved);
         }
-        Settings settings = Settings.builder()
-            .put(IndexMetadata.SETTING_REPLICATION_TYPE, ReplicationType.SEGMENT)
-            .put(IndexMetadata.SETTING_REMOTE_STORE_ENABLED, "true")
-            .build();
+        Settings settings = Settings.builder().put("index.remote_store.translog.enabled", "true").build();
         final ReplicationTracker tracker = newTracker(primaryId, settings);
         tracker.updateFromClusterManager(initialClusterStateVersion, ids(active), routingTable(initializing, primaryId));
         tracker.activatePrimaryMode(NO_OPS_PERFORMED);
@@ -1648,10 +1622,7 @@ public class ReplicationTrackerTests extends ReplicationTrackerTestCase {
         final Set<AllocationId> initializingIds = activeAndInitializingAllocationIds.v2();
         AllocationId primaryId = activeAllocationIds.iterator().next();
         IndexShardRoutingTable routingTable = routingTable(initializingIds, primaryId);
-        Settings settings = Settings.builder()
-            .put(IndexMetadata.SETTING_REPLICATION_TYPE, ReplicationType.SEGMENT)
-            .put(IndexMetadata.SETTING_REMOTE_STORE_ENABLED, "true")
-            .build();
+        Settings settings = Settings.builder().put("index.remote_store.translog.enabled", "true").build();
         final ReplicationTracker tracker = newTracker(primaryId, settings);
         tracker.updateFromClusterManager(initialClusterStateVersion, ids(activeAllocationIds), routingTable);
         tracker.activatePrimaryMode(NO_OPS_PERFORMED);
@@ -1822,42 +1793,23 @@ public class ReplicationTrackerTests extends ReplicationTrackerTestCase {
         assertThat(tracker.getReplicationGroup().getInSyncAllocationIds(), equalTo(ids(activeAllocationIds)));
         assertThat(tracker.getReplicationGroup().getRoutingTable(), equalTo(routingTable));
         assertTrue(activeAllocationIds.stream().allMatch(a -> tracker.getTrackedLocalCheckpointForShard(a.getId()).inSync));
+        // get insync ids, filter out the primary.
+        final Set<String> inSyncAllocationIds = tracker.getReplicationGroup()
+            .getInSyncAllocationIds()
+            .stream()
+            .filter(id -> tracker.shardAllocationId.equals(id) == false)
+            .collect(Collectors.toSet());
 
-        initializingIds.forEach(aId -> markAsTrackingAndInSyncQuietly(tracker, aId.getId(), NO_OPS_PERFORMED));
-
-        final ReplicationCheckpoint initialCheckpoint = new ReplicationCheckpoint(
-            tracker.shardId(),
-            0L,
-            1,
-            1,
-            1L,
-            Codec.getDefault().getName()
-        );
-        final ReplicationCheckpoint secondCheckpoint = new ReplicationCheckpoint(
-            tracker.shardId(),
-            0L,
-            2,
-            2,
-            50L,
-            Codec.getDefault().getName()
-        );
-        final ReplicationCheckpoint thirdCheckpoint = new ReplicationCheckpoint(
-            tracker.shardId(),
-            0L,
-            2,
-            3,
-            100L,
-            Codec.getDefault().getName()
-        );
+        final ReplicationCheckpoint initialCheckpoint = new ReplicationCheckpoint(tracker.shardId(), 0L, 1, 1, 1L);
+        final ReplicationCheckpoint secondCheckpoint = new ReplicationCheckpoint(tracker.shardId(), 0L, 2, 2, 50L);
+        final ReplicationCheckpoint thirdCheckpoint = new ReplicationCheckpoint(tracker.shardId(), 0L, 2, 3, 100L);
 
         tracker.setLatestReplicationCheckpoint(initialCheckpoint);
         tracker.setLatestReplicationCheckpoint(secondCheckpoint);
         tracker.setLatestReplicationCheckpoint(thirdCheckpoint);
 
-        final Set<String> expectedIds = ids(initializingIds);
-
         Set<SegmentReplicationShardStats> groupStats = tracker.getSegmentReplicationStats();
-        assertEquals(expectedIds.size(), groupStats.size());
+        assertEquals(inSyncAllocationIds.size(), groupStats.size());
         for (SegmentReplicationShardStats shardStat : groupStats) {
             assertEquals(3, shardStat.getCheckpointsBehindCount());
             assertEquals(100L, shardStat.getBytesBehindCount());
@@ -1865,7 +1817,7 @@ public class ReplicationTrackerTests extends ReplicationTrackerTestCase {
 
         // simulate replicas moved up to date.
         final Map<String, ReplicationTracker.CheckpointState> checkpoints = tracker.checkpoints;
-        for (String id : expectedIds) {
+        for (String id : inSyncAllocationIds) {
             final ReplicationTracker.CheckpointState checkpointState = checkpoints.get(id);
             assertEquals(3, checkpointState.checkpointTimers.size());
             tracker.updateVisibleCheckpointForShard(id, initialCheckpoint);
@@ -1873,13 +1825,13 @@ public class ReplicationTrackerTests extends ReplicationTrackerTestCase {
         }
 
         groupStats = tracker.getSegmentReplicationStats();
-        assertEquals(expectedIds.size(), groupStats.size());
+        assertEquals(inSyncAllocationIds.size(), groupStats.size());
         for (SegmentReplicationShardStats shardStat : groupStats) {
             assertEquals(2, shardStat.getCheckpointsBehindCount());
             assertEquals(99L, shardStat.getBytesBehindCount());
         }
 
-        for (String id : expectedIds) {
+        for (String id : inSyncAllocationIds) {
             final ReplicationTracker.CheckpointState checkpointState = checkpoints.get(id);
             assertEquals(2, checkpointState.checkpointTimers.size());
             tracker.updateVisibleCheckpointForShard(id, thirdCheckpoint);
@@ -1887,86 +1839,15 @@ public class ReplicationTrackerTests extends ReplicationTrackerTestCase {
         }
 
         groupStats = tracker.getSegmentReplicationStats();
-        assertEquals(expectedIds.size(), groupStats.size());
+        assertEquals(inSyncAllocationIds.size(), groupStats.size());
         for (SegmentReplicationShardStats shardStat : groupStats) {
             assertEquals(0, shardStat.getCheckpointsBehindCount());
             assertEquals(0L, shardStat.getBytesBehindCount());
         }
     }
 
-    public void testSegmentReplicationCheckpointTrackingInvalidAllocationIDs() {
-        Settings settings = Settings.builder().put(SETTING_REPLICATION_TYPE, ReplicationType.SEGMENT).build();
-        final long initialClusterStateVersion = randomNonNegativeLong();
-        final int numberOfActiveAllocationsIds = randomIntBetween(2, 16);
-        final int numberOfInitializingIds = randomIntBetween(2, 16);
-        final Tuple<Set<AllocationId>, Set<AllocationId>> activeAndInitializingAllocationIds = randomActiveAndInitializingAllocationIds(
-            numberOfActiveAllocationsIds,
-            numberOfInitializingIds
-        );
-        final Set<AllocationId> activeAllocationIds = activeAndInitializingAllocationIds.v1();
-        final Set<AllocationId> initializingIds = activeAndInitializingAllocationIds.v2();
-        AllocationId primaryId = activeAllocationIds.iterator().next();
-        IndexShardRoutingTable routingTable = routingTable(initializingIds, primaryId);
-        final ReplicationTracker tracker = newTracker(primaryId, settings);
-        tracker.updateFromClusterManager(initialClusterStateVersion, ids(activeAllocationIds), routingTable);
-        tracker.activatePrimaryMode(NO_OPS_PERFORMED);
-
-        initializingIds.forEach(aId -> markAsTrackingAndInSyncQuietly(tracker, aId.getId(), NO_OPS_PERFORMED));
-
-        assertEquals(tracker.getReplicationGroup().getRoutingTable(), routingTable);
-        assertEquals(
-            "All active & initializing ids are now marked in-sync",
-            Sets.union(ids(activeAllocationIds), ids(initializingIds)),
-            tracker.getReplicationGroup().getInSyncAllocationIds()
-        );
-
-        assertEquals(
-            "Active ids are in-sync but still unavailable",
-            tracker.getReplicationGroup().getUnavailableInSyncShards(),
-            Sets.difference(ids(activeAllocationIds), Set.of(primaryId.getId()))
-        );
-        assertTrue(activeAllocationIds.stream().allMatch(a -> tracker.getTrackedLocalCheckpointForShard(a.getId()).inSync));
-
-        final ReplicationCheckpoint initialCheckpoint = new ReplicationCheckpoint(
-            tracker.shardId(),
-            0L,
-            1,
-            1,
-            1L,
-            Codec.getDefault().getName()
-        );
-        tracker.setLatestReplicationCheckpoint(initialCheckpoint);
-
-        // we expect that the only returned ids from getSegmentReplicationStats will be the initializing ids we marked with
-        // markAsTrackingAndInSyncQuietly.
-        // This is because the ids marked active initially are still unavailable (don't have an associated routing entry).
-        final Set<String> expectedIds = ids(initializingIds);
-        Set<SegmentReplicationShardStats> groupStats = tracker.getSegmentReplicationStats();
-        final Set<String> actualIds = groupStats.stream().map(SegmentReplicationShardStats::getAllocationId).collect(Collectors.toSet());
-        assertEquals(expectedIds, actualIds);
-        for (SegmentReplicationShardStats shardStat : groupStats) {
-            assertEquals(1, shardStat.getCheckpointsBehindCount());
-        }
-
-        // simulate replicas moved up to date.
-        final Map<String, ReplicationTracker.CheckpointState> checkpoints = tracker.checkpoints;
-        for (String id : expectedIds) {
-            final ReplicationTracker.CheckpointState checkpointState = checkpoints.get(id);
-            assertEquals(1, checkpointState.checkpointTimers.size());
-            tracker.updateVisibleCheckpointForShard(id, initialCheckpoint);
-            assertEquals(0, checkpointState.checkpointTimers.size());
-        }
-
-        // Unknown allocation ID will be ignored.
-        tracker.updateVisibleCheckpointForShard("randomAllocationID", initialCheckpoint);
-        assertThrows(AssertionError.class, () -> tracker.updateVisibleCheckpointForShard(tracker.shardAllocationId, initialCheckpoint));
-    }
-
     public void testPrimaryContextHandoffWithRemoteTranslogEnabled() throws IOException {
-        Settings settings = Settings.builder()
-            .put(IndexMetadata.SETTING_REPLICATION_TYPE, ReplicationType.SEGMENT)
-            .put(IndexMetadata.SETTING_REMOTE_STORE_ENABLED, "true")
-            .build();
+        Settings settings = Settings.builder().put("index.remote_store.translog.enabled", "true").build();
         final IndexSettings indexSettings = IndexSettingsModule.newIndexSettings("test", settings);
         final ShardId shardId = new ShardId("test", "_na_", 0);
 
@@ -2145,10 +2026,7 @@ public class ReplicationTrackerTests extends ReplicationTrackerTestCase {
     public void testIllegalStateExceptionIfUnknownAllocationIdWithRemoteTranslogEnabled() {
         final AllocationId active = AllocationId.newInitializing();
         final AllocationId initializing = AllocationId.newInitializing();
-        Settings settings = Settings.builder()
-            .put(IndexMetadata.SETTING_REPLICATION_TYPE, ReplicationType.SEGMENT)
-            .put(IndexMetadata.SETTING_REMOTE_STORE_ENABLED, "true")
-            .build();
+        Settings settings = Settings.builder().put("index.remote_store.translog.enabled", "true").build();
         final ReplicationTracker tracker = newTracker(active, settings);
         tracker.updateFromClusterManager(
             randomNonNegativeLong(),

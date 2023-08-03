@@ -33,13 +33,14 @@
 package org.opensearch.ingest.common;
 
 import org.opensearch.OpenSearchException;
-import org.opensearch.OpenSearchParseException;
-import org.opensearch.core.common.unit.ByteSizeUnit;
-import org.opensearch.core.common.unit.ByteSizeValue;
+import org.opensearch.common.unit.ByteSizeUnit;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.ingest.IngestDocument;
 import org.opensearch.ingest.Processor;
 import org.opensearch.ingest.RandomDocumentPicks;
 import org.hamcrest.CoreMatchers;
+
+import static org.hamcrest.Matchers.equalTo;
 
 public class BytesProcessorTests extends AbstractStringProcessorTestCase<Long> {
 
@@ -100,16 +101,14 @@ public class BytesProcessorTests extends AbstractStringProcessorTestCase<Long> {
         assertThat(exception.getMessage(), CoreMatchers.containsString("unit is missing or unrecognized"));
     }
 
-    public void testFractional() {
+    public void testFractional() throws Exception {
         IngestDocument ingestDocument = RandomDocumentPicks.randomIngestDocument(random());
         String fieldName = RandomDocumentPicks.addRandomField(random(), ingestDocument, "1.1kb");
         Processor processor = newProcessor(fieldName, randomBoolean(), fieldName);
-        OpenSearchParseException e = expectThrows(OpenSearchParseException.class, () -> processor.execute(ingestDocument));
-        assertThat(
-            e.getMessage(),
-            CoreMatchers.containsString(
-                "Fractional bytes values have been deprecated since Legacy 6.2. " + "Use non-fractional bytes values instead:"
-            )
+        processor.execute(ingestDocument);
+        assertThat(ingestDocument.getFieldValue(fieldName, expectedResultType()), equalTo(1126L));
+        assertWarnings(
+            "Fractional bytes values are deprecated. Use non-fractional bytes values instead: [1.1kb] found for setting " + "[Ingest Field]"
         );
     }
 }

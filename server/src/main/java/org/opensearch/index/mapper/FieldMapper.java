@@ -32,9 +32,13 @@
 
 package org.opensearch.index.mapper;
 
+import com.carrotsearch.hppc.cursors.ObjectCursor;
+import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
+
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.IndexOptions;
+import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Setting.Property;
 import org.opensearch.common.settings.Settings;
@@ -54,7 +58,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Spliterators;
 import java.util.TreeMap;
 import java.util.stream.StreamSupport;
 
@@ -577,7 +580,7 @@ public abstract class FieldMapper extends Mapper implements Cloneable {
     public static class MultiFields implements Iterable<Mapper> {
 
         public static MultiFields empty() {
-            return new MultiFields(Map.of());
+            return new MultiFields(ImmutableOpenMap.<String, FieldMapper>of());
         }
 
         /**
@@ -587,7 +590,7 @@ public abstract class FieldMapper extends Mapper implements Cloneable {
          */
         public static class Builder {
 
-            private final Map<String, Mapper.Builder> mapperBuilders = new HashMap<>();
+            private final ImmutableOpenMap.Builder<String, Mapper.Builder> mapperBuilders = ImmutableOpenMap.builder();
 
             public Builder add(Mapper.Builder builder) {
                 mapperBuilders.put(builder.name(), builder);
@@ -621,25 +624,30 @@ public abstract class FieldMapper extends Mapper implements Cloneable {
                     return empty();
                 } else {
                     context.path().add(mainFieldBuilder.name());
-                    Map mapperBuilders = this.mapperBuilders;
-                    for (final Map.Entry<String, Mapper.Builder> cursor : this.mapperBuilders.entrySet()) {
-                        String key = cursor.getKey();
-                        Mapper.Builder value = cursor.getValue();
+                    ImmutableOpenMap.Builder mapperBuilders = this.mapperBuilders;
+                    for (ObjectObjectCursor<String, Mapper.Builder> cursor : this.mapperBuilders) {
+                        String key = cursor.key;
+                        Mapper.Builder value = cursor.value;
                         Mapper mapper = value.build(context);
                         assert mapper instanceof FieldMapper;
                         mapperBuilders.put(key, mapper);
                     }
                     context.path().remove();
-                    final Map<String, FieldMapper> mappers = (Map<String, FieldMapper>) mapperBuilders;
-                    return new MultiFields(mappers);
+                    ImmutableOpenMap.Builder<String, FieldMapper> mappers = mapperBuilders.cast();
+                    return new MultiFields(mappers.build());
                 }
             }
         }
 
-        private final Map<String, FieldMapper> mappers;
+        private final ImmutableOpenMap<String, FieldMapper> mappers;
 
-        private MultiFields(final Map<String, FieldMapper> mappers) {
-            this.mappers = Collections.unmodifiableMap(mappers);
+        private MultiFields(ImmutableOpenMap<String, FieldMapper> mappers) {
+            ImmutableOpenMap.Builder<String, FieldMapper> builder = new ImmutableOpenMap.Builder<>();
+            // we disable the all in multi-field mappers
+            for (ObjectObjectCursor<String, FieldMapper> cursor : mappers) {
+                builder.put(cursor.key, cursor.value);
+            }
+            this.mappers = builder.build();
         }
 
         public void parse(FieldMapper mainField, ParseContext context) throws IOException {
@@ -650,17 +658,19 @@ public abstract class FieldMapper extends Mapper implements Cloneable {
             }
 
             context = context.createMultiFieldContext();
+
             context.path().add(mainField.simpleName());
-            for (final FieldMapper cursor : mappers.values()) {
-                cursor.parse(context);
+            for (ObjectCursor<FieldMapper> cursor : mappers.values()) {
+                cursor.value.parse(context);
             }
             context.path().remove();
         }
 
         public MultiFields merge(MultiFields mergeWith) {
-            final Map<String, FieldMapper> newMappersBuilder = new HashMap<>(mappers);
+            ImmutableOpenMap.Builder<String, FieldMapper> newMappersBuilder = ImmutableOpenMap.builder(mappers);
 
-            for (final FieldMapper mergeWithMapper : mergeWith.mappers.values()) {
+            for (ObjectCursor<FieldMapper> cursor : mergeWith.mappers.values()) {
+                FieldMapper mergeWithMapper = cursor.value;
                 FieldMapper mergeIntoMapper = mappers.get(mergeWithMapper.simpleName());
                 if (mergeIntoMapper == null) {
                     newMappersBuilder.put(mergeWithMapper.simpleName(), mergeWithMapper);
@@ -670,19 +680,19 @@ public abstract class FieldMapper extends Mapper implements Cloneable {
                 }
             }
 
-            final Map<String, FieldMapper> mappers = Collections.unmodifiableMap(newMappersBuilder);
+            ImmutableOpenMap<String, FieldMapper> mappers = newMappersBuilder.build();
             return new MultiFields(mappers);
         }
 
         @Override
         public Iterator<Mapper> iterator() {
-            return StreamSupport.stream(Spliterators.spliterator(mappers.values(), 0), false).map((p) -> (Mapper) p).iterator();
+            return StreamSupport.stream(mappers.values().spliterator(), false).map((p) -> (Mapper) p.value).iterator();
         }
 
         public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
             if (!mappers.isEmpty()) {
                 // sort the mappers so we get consistent serialization format
-                Mapper[] sortedMappers = mappers.values().toArray(new FieldMapper[0]);
+                Mapper[] sortedMappers = mappers.values().toArray(Mapper.class);
                 Arrays.sort(sortedMappers, new Comparator<Mapper>() {
                     @Override
                     public int compare(Mapper o1, Mapper o2) {

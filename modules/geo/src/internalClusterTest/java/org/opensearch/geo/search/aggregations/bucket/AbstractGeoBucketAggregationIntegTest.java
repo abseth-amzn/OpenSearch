@@ -8,7 +8,8 @@
 
 package org.opensearch.geo.search.aggregations.bucket;
 
-import org.apache.lucene.geo.GeoEncodingUtils;
+import com.carrotsearch.hppc.ObjectIntHashMap;
+import com.carrotsearch.hppc.ObjectIntMap;
 import org.opensearch.Version;
 import org.opensearch.action.index.IndexRequestBuilder;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -24,10 +25,8 @@ import org.opensearch.geometry.Rectangle;
 import org.opensearch.test.VersionUtils;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
@@ -51,11 +50,11 @@ public abstract class AbstractGeoBucketAggregationIntegTest extends GeoModulePlu
 
     protected static Rectangle boundingRectangleForGeoShapesAgg;
 
-    protected static Map<String, Integer> expectedDocsCountForGeoShapes;
+    protected static ObjectIntMap<String> expectedDocsCountForGeoShapes;
 
-    protected static Map<String, Integer> expectedDocCountsForSingleGeoPoint;
+    protected static ObjectIntMap<String> expectedDocCountsForSingleGeoPoint;
 
-    protected static Map<String, Integer> multiValuedExpectedDocCountsGeoPoint;
+    protected static ObjectIntMap<String> multiValuedExpectedDocCountsGeoPoint;
 
     protected static final String GEO_SHAPE_FIELD_NAME = "location_geo_shape";
 
@@ -82,7 +81,7 @@ public abstract class AbstractGeoBucketAggregationIntegTest extends GeoModulePlu
      * @throws Exception thrown during index creation.
      */
     protected void prepareGeoShapeIndexForAggregations(final Random random) throws Exception {
-        expectedDocsCountForGeoShapes = new HashMap<>();
+        expectedDocsCountForGeoShapes = new ObjectIntHashMap<>();
         final Settings settings = Settings.builder().put(IndexMetadata.SETTING_VERSION_CREATED, version).build();
         final List<IndexRequestBuilder> geoshapes = new ArrayList<>();
         assertAcked(prepareCreate(GEO_SHAPE_INDEX_NAME).setSettings(settings).setMapping(GEO_SHAPE_FIELD_NAME, "type" + "=geo_shape"));
@@ -129,7 +128,7 @@ public abstract class AbstractGeoBucketAggregationIntegTest extends GeoModulePlu
      * @throws Exception thrown during index creation.
      */
     protected void prepareSingleValueGeoPointIndex(final Random random) throws Exception {
-        expectedDocCountsForSingleGeoPoint = new HashMap<>();
+        expectedDocCountsForSingleGeoPoint = new ObjectIntHashMap<>();
         createIndex("idx_unmapped");
         final Settings settings = Settings.builder()
             .put(IndexMetadata.SETTING_VERSION_CREATED, version)
@@ -155,7 +154,7 @@ public abstract class AbstractGeoBucketAggregationIntegTest extends GeoModulePlu
     }
 
     protected void prepareMultiValuedGeoPointIndex(final Random random) throws Exception {
-        multiValuedExpectedDocCountsGeoPoint = new HashMap<>();
+        multiValuedExpectedDocCountsGeoPoint = new ObjectIntHashMap<>();
         final Settings settings = Settings.builder().put(IndexMetadata.SETTING_VERSION_CREATED, version).build();
         final List<IndexRequestBuilder> cities = new ArrayList<>();
         assertAcked(
@@ -253,19 +252,6 @@ public abstract class AbstractGeoBucketAggregationIntegTest extends GeoModulePlu
      */
     protected double getRadiusOfBoundingBox() {
         return 5.0;
-    }
-
-    /**
-     * Encode and Decode the {@link GeoPoint} to get a {@link GeoPoint} which has the exact precision which is being
-     * stored.
-     * @param geoPoint {@link GeoPoint}
-     * @return {@link GeoPoint}
-     */
-    protected GeoPoint toStoragePrecision(final GeoPoint geoPoint) {
-        return new GeoPoint(
-            GeoEncodingUtils.decodeLatitude(GeoEncodingUtils.encodeLatitude(geoPoint.getLat())),
-            GeoEncodingUtils.decodeLongitude(GeoEncodingUtils.encodeLongitude(geoPoint.getLon()))
-        );
     }
 
 }

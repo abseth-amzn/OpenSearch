@@ -8,11 +8,10 @@
 
 package org.opensearch.tasks;
 
-import org.opensearch.Version;
 import org.opensearch.common.Strings;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.core.common.io.stream.Writeable;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.ToXContentFragment;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -22,8 +21,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-
-import static org.opensearch.tasks.Task.THREAD_INFO;
 
 /**
  * Resource information about a currently running task.
@@ -35,11 +32,9 @@ import static org.opensearch.tasks.Task.THREAD_INFO;
  */
 public class TaskResourceStats implements Writeable, ToXContentFragment {
     private final Map<String, TaskResourceUsage> resourceUsage;
-    private final TaskThreadUsage threadUsage;
 
-    public TaskResourceStats(Map<String, TaskResourceUsage> resourceUsage, TaskThreadUsage threadUsage) {
+    public TaskResourceStats(Map<String, TaskResourceUsage> resourceUsage) {
         this.resourceUsage = Objects.requireNonNull(resourceUsage, "resource usage is required");
-        this.threadUsage = Objects.requireNonNull(threadUsage, "thread usage is required");
     }
 
     /**
@@ -47,28 +42,15 @@ public class TaskResourceStats implements Writeable, ToXContentFragment {
      */
     public TaskResourceStats(StreamInput in) throws IOException {
         resourceUsage = in.readMap(StreamInput::readString, TaskResourceUsage::readFromStream);
-        if (in.getVersion().onOrAfter(Version.V_2_9_0)) {
-            threadUsage = TaskThreadUsage.readFromStream(in);
-        } else {
-            // Initialize TaskThreadUsage in case it is not found in mixed cluster case
-            threadUsage = new TaskThreadUsage(0, 0);
-        }
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeMap(resourceUsage, StreamOutput::writeString, (stream, stats) -> stats.writeTo(stream));
-        if (out.getVersion().onOrAfter(Version.V_2_9_0)) {
-            threadUsage.writeTo(out);
-        }
     }
 
     public Map<String, TaskResourceUsage> getResourceUsageInfo() {
         return resourceUsage;
-    }
-
-    public TaskThreadUsage getThreadUsage() {
-        return threadUsage;
     }
 
     @Override
@@ -80,9 +62,6 @@ public class TaskResourceStats implements Writeable, ToXContentFragment {
             }
             builder.endObject();
         }
-        builder.startObject(THREAD_INFO);
-        threadUsage.toXContent(builder, params);
-        builder.endObject();
         return builder;
     }
 
@@ -95,24 +74,17 @@ public class TaskResourceStats implements Writeable, ToXContentFragment {
             token = parser.nextToken();
         }
         final Map<String, TaskResourceUsage> resourceStats = new HashMap<>();
-        // Initialize TaskThreadUsage in case it is not found in mixed cluster case
-        TaskThreadUsage threadUsage = new TaskThreadUsage(0, 0);
         if (token == XContentParser.Token.FIELD_NAME) {
             assert parser.currentToken() == XContentParser.Token.FIELD_NAME : "Expected field name but saw [" + parser.currentToken() + "]";
             do {
                 // Must point to field name
                 String fieldName = parser.currentName();
                 // And then the value
-
-                if (fieldName.equals(THREAD_INFO)) {
-                    threadUsage = TaskThreadUsage.fromXContent(parser);
-                } else {
-                    TaskResourceUsage value = TaskResourceUsage.fromXContent(parser);
-                    resourceStats.put(fieldName, value);
-                }
+                TaskResourceUsage value = TaskResourceUsage.fromXContent(parser);
+                resourceStats.put(fieldName, value);
             } while (parser.nextToken() == XContentParser.Token.FIELD_NAME);
         }
-        return new TaskResourceStats(resourceStats, threadUsage);
+        return new TaskResourceStats(resourceStats);
     }
 
     @Override

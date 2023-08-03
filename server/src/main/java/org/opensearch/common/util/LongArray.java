@@ -32,8 +32,6 @@
 
 package org.opensearch.common.util;
 
-import org.opensearch.core.common.util.BigArray;
-
 /**
  * Abstraction of an array of long values.
  *

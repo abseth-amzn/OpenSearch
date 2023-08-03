@@ -9,7 +9,7 @@
 package org.opensearch.index.store.remote.filecache;
 
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.index.store.remote.utils.cache.CacheUsage;
 import org.opensearch.index.store.remote.utils.cache.stats.CacheStats;
 import org.opensearch.test.OpenSearchTestCase;
@@ -45,6 +45,8 @@ public class FileCacheStatsTests extends OpenSearchTestCase {
             fileCacheCapacity,
             usage.usage(),
             stats.evictionWeight(),
+            stats.removeWeight(),
+            stats.replaceCount(),
             stats.hitCount(),
             stats.missCount()
         );
@@ -62,8 +64,10 @@ public class FileCacheStatsTests extends OpenSearchTestCase {
         assertEquals(original.getActive(), deserialized.getActive());
         assertEquals(original.getActivePercent(), deserialized.getActivePercent());
         assertEquals(original.getEvicted(), deserialized.getEvicted());
+        assertEquals(original.getRemoved(), deserialized.getRemoved());
+        assertEquals(original.getReplacedCount(), deserialized.getReplacedCount());
         assertEquals(original.getCacheHits(), deserialized.getCacheHits());
-        assertEquals(original.getCacheMisses(), deserialized.getCacheMisses());
+        assertEquals(original.getCacheMiss(), deserialized.getCacheMiss());
     }
 
     public void testFileCacheStatsSerialization() throws IOException {

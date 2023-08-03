@@ -33,10 +33,10 @@
 package org.opensearch.tasks;
 
 import org.opensearch.common.Nullable;
-import org.opensearch.common.SetOnce;
 import org.opensearch.common.unit.TimeValue;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.opensearch.search.SearchService.NO_TIMEOUT;
 
@@ -47,25 +47,8 @@ import static org.opensearch.search.SearchService.NO_TIMEOUT;
  */
 public abstract class CancellableTask extends Task {
 
-    private static class CancelledInfo {
-        String reason;
-        /**
-         * The time this task was cancelled as a wall clock time since epoch ({@link System#currentTimeMillis()} style).
-         */
-        Long cancellationStartTime;
-        /**
-         * The time this task was cancelled as a relative time ({@link System#nanoTime()} style).
-         */
-        Long cancellationStartTimeNanos;
-
-        public CancelledInfo(String reason) {
-            this.reason = reason;
-            this.cancellationStartTime = System.currentTimeMillis();
-            this.cancellationStartTimeNanos = System.nanoTime();
-        }
-    }
-
-    private final SetOnce<CancelledInfo> cancelledInfo = new SetOnce<>();
+    private volatile String reason;
+    private final AtomicBoolean cancelled = new AtomicBoolean(false);
     private final TimeValue cancelAfterTimeInterval;
 
     public CancellableTask(long id, String type, String action, String description, TaskId parentTaskId, Map<String, String> headers) {
@@ -90,28 +73,11 @@ public abstract class CancellableTask extends Task {
      */
     public void cancel(String reason) {
         assert reason != null;
-        if (cancelledInfo.trySet(new CancelledInfo(reason))) {
+        if (cancelled.compareAndSet(false, true)) {
+            this.reason = reason;
             onCancelled();
         }
     }
-
-    public boolean isCancelled() {
-        return cancelledInfo.get() != null;
-    }
-
-    /**
-     * Returns true if this task can potentially have children that need to be cancelled when it parent is cancelled.
-     */
-    public abstract boolean shouldCancelChildrenOnCancellation();
-
-    public TimeValue getCancellationTimeout() {
-        return cancelAfterTimeInterval;
-    }
-
-    /**
-     * Called after the task is cancelled so that it can take any actions that it has to take.
-     */
-    protected void onCancelled() {}
 
     /**
      * Returns true if this task should be automatically cancelled if the coordinating node that
@@ -121,24 +87,29 @@ public abstract class CancellableTask extends Task {
         return true;
     }
 
-    @Nullable
-    public Long getCancellationStartTime() {
-        CancelledInfo info = cancelledInfo.get();
-        return (info != null) ? info.cancellationStartTime : null;
+    /**
+     * Returns true if this task can potentially have children that need to be cancelled when it parent is cancelled.
+     */
+    public abstract boolean shouldCancelChildrenOnCancellation();
+
+    public boolean isCancelled() {
+        return cancelled.get();
     }
 
-    @Nullable
-    public Long getCancellationStartTimeNanos() {
-        CancelledInfo info = cancelledInfo.get();
-        return (info != null) ? info.cancellationStartTimeNanos : null;
+    public TimeValue getCancellationTimeout() {
+        return cancelAfterTimeInterval;
     }
 
     /**
      * The reason the task was cancelled or null if it hasn't been cancelled.
      */
     @Nullable
-    public String getReasonCancelled() {
-        CancelledInfo info = cancelledInfo.get();
-        return (info != null) ? info.reason : null;
+    public final String getReasonCancelled() {
+        return reason;
     }
+
+    /**
+     * Called after the task is cancelled so that it can take any actions that it has to take.
+     */
+    protected void onCancelled() {}
 }

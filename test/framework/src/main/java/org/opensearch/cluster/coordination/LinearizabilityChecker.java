@@ -31,6 +31,7 @@
 
 package org.opensearch.cluster.coordination;
 
+import com.carrotsearch.hppc.LongObjectHashMap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.util.FixedBitSet;
@@ -497,7 +498,7 @@ public class LinearizabilityChecker {
      */
     private static class Cache {
         private final Map<Object, Set<FixedBitSet>> largeMap = new HashMap<>();
-        private final Map<Long, Set<Object>> smallMap = new HashMap<>();
+        private final LongObjectHashMap<Set<Object>> smallMap = new LongObjectHashMap<>();
         private final Map<Object, Object> internalizeStateMap = new HashMap<>();
         private final Map<Set<Object>, Set<Object>> statePermutations = new HashMap<>();
 
@@ -516,11 +517,12 @@ public class LinearizabilityChecker {
         }
 
         private boolean addSmall(Object state, long bits) {
-            Set<Object> states = smallMap.get(bits);
-            if (states == null) {
-                states = Set.of(state);
+            int index = smallMap.indexOf(bits);
+            Set<Object> states;
+            if (index < 0) {
+                states = Collections.singleton(state);
             } else {
-                Set<Object> oldStates = states;
+                Set<Object> oldStates = smallMap.indexGet(index);
                 if (oldStates.contains(state)) return false;
                 states = new HashSet<>(oldStates.size() + 1);
                 states.addAll(oldStates);
@@ -530,7 +532,12 @@ public class LinearizabilityChecker {
             // Get a unique set object per state permutation. We assume that the number of permutations of states are small.
             // We thus avoid the overhead of the set data structure.
             states = statePermutations.computeIfAbsent(states, k -> k);
-            smallMap.put(bits, states);
+
+            if (index < 0) {
+                smallMap.indexInsert(index, bits, states);
+            } else {
+                smallMap.indexReplace(index, states);
+            }
 
             return true;
         }

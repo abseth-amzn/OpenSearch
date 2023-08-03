@@ -196,13 +196,11 @@ public class SegmentReplicationSourceHandlerTests extends IndexShardTestCase {
             1
         );
 
-        final List<StoreFileMetadata> expectedFiles = List.of(new StoreFileMetadata("_0.si", 20, "test", Version.CURRENT.luceneVersion));
-
         final GetSegmentFilesRequest getSegmentFilesRequest = new GetSegmentFilesRequest(
             1L,
             replica.routingEntry().allocationId().getId(),
             replicaDiscoveryNode,
-            expectedFiles,
+            Collections.emptyList(),
             latestReplicationCheckpoint
         );
 
@@ -226,12 +224,11 @@ public class SegmentReplicationSourceHandlerTests extends IndexShardTestCase {
             1
         );
 
-        final List<StoreFileMetadata> expectedFiles = List.of(new StoreFileMetadata("_0.si", 20, "test", Version.CURRENT.luceneVersion));
         final GetSegmentFilesRequest getSegmentFilesRequest = new GetSegmentFilesRequest(
             1L,
             replica.routingEntry().allocationId().getId(),
             replicaDiscoveryNode,
-            expectedFiles,
+            Collections.emptyList(),
             latestReplicationCheckpoint
         );
 

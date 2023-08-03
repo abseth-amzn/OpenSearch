@@ -57,20 +57,20 @@ import org.opensearch.cluster.routing.OperationRouting;
 import org.opensearch.cluster.routing.ShardIterator;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Nullable;
-import org.opensearch.core.common.breaker.CircuitBreaker;
+import org.opensearch.common.Strings;
+import org.opensearch.common.breaker.CircuitBreaker;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
-import org.opensearch.core.common.io.stream.Writeable;
+import org.opensearch.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Setting.Property;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.AtomicArray;
 import org.opensearch.common.util.concurrent.CountDown;
-import org.opensearch.core.common.Strings;
-import org.opensearch.core.index.Index;
+import org.opensearch.index.Index;
 import org.opensearch.index.query.Rewriteable;
-import org.opensearch.core.index.shard.ShardId;
-import org.opensearch.core.indices.breaker.CircuitBreakerService;
+import org.opensearch.index.shard.ShardId;
+import org.opensearch.indices.breaker.CircuitBreakerService;
 import org.opensearch.search.SearchPhaseResult;
 import org.opensearch.search.SearchService;
 import org.opensearch.search.SearchShardTarget;
@@ -80,8 +80,6 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.internal.AliasFilter;
 import org.opensearch.search.internal.InternalSearchResponse;
 import org.opensearch.search.internal.SearchContext;
-import org.opensearch.search.pipeline.PipelinedRequest;
-import org.opensearch.search.pipeline.SearchPipelineService;
 import org.opensearch.search.profile.ProfileShardResult;
 import org.opensearch.search.profile.SearchProfileShardResults;
 import org.opensearch.tasks.CancellableTask;
@@ -155,7 +153,6 @@ public class TransportSearchAction extends HandledTransportAction<SearchRequest,
     private final IndexNameExpressionResolver indexNameExpressionResolver;
     private final NamedWriteableRegistry namedWriteableRegistry;
     private final CircuitBreaker circuitBreaker;
-    private final SearchPipelineService searchPipelineService;
 
     @Inject
     public TransportSearchAction(
@@ -169,8 +166,7 @@ public class TransportSearchAction extends HandledTransportAction<SearchRequest,
         ClusterService clusterService,
         ActionFilters actionFilters,
         IndexNameExpressionResolver indexNameExpressionResolver,
-        NamedWriteableRegistry namedWriteableRegistry,
-        SearchPipelineService searchPipelineService
+        NamedWriteableRegistry namedWriteableRegistry
     ) {
         super(SearchAction.NAME, transportService, actionFilters, (Writeable.Reader<SearchRequest>) SearchRequest::new);
         this.client = client;
@@ -184,7 +180,6 @@ public class TransportSearchAction extends HandledTransportAction<SearchRequest,
         this.searchService = searchService;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
         this.namedWriteableRegistry = namedWriteableRegistry;
-        this.searchPipelineService = searchPipelineService;
     }
 
     private Map<String, AliasFilter> buildPerIndexAliasFilter(
@@ -380,29 +375,16 @@ public class TransportSearchAction extends HandledTransportAction<SearchRequest,
 
     private void executeRequest(
         Task task,
-        SearchRequest originalSearchRequest,
+        SearchRequest searchRequest,
         SearchAsyncActionProvider searchAsyncActionProvider,
-        ActionListener<SearchResponse> originalListener
+        ActionListener<SearchResponse> listener
     ) {
         final long relativeStartNanos = System.nanoTime();
         final SearchTimeProvider timeProvider = new SearchTimeProvider(
-            originalSearchRequest.getOrCreateAbsoluteStartMillis(),
+            searchRequest.getOrCreateAbsoluteStartMillis(),
             relativeStartNanos,
             System::nanoTime
         );
-        PipelinedRequest searchRequest;
-        ActionListener<SearchResponse> listener;
-        try {
-            searchRequest = searchPipelineService.resolvePipeline(originalSearchRequest);
-            listener = ActionListener.wrap(
-                r -> originalListener.onResponse(searchRequest.transformResponse(r)),
-                originalListener::onFailure
-            );
-        } catch (Exception e) {
-            originalListener.onFailure(e);
-            return;
-        }
-
         ActionListener<SearchSourceBuilder> rewriteListener = ActionListener.wrap(source -> {
             if (source != searchRequest.source()) {
                 // only set it if it changed - we don't allow null values to be set but it might be already null. this way we catch
@@ -442,7 +424,7 @@ public class TransportSearchAction extends HandledTransportAction<SearchRequest,
                         localIndices,
                         remoteClusterIndices,
                         timeProvider,
-                        searchService.aggReduceContextBuilder(searchRequest.source()),
+                        searchService.aggReduceContextBuilder(searchRequest),
                         remoteClusterService,
                         threadPool,
                         listener,

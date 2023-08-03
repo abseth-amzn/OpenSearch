@@ -31,13 +31,12 @@
 
 package org.opensearch.common;
 
+import com.carrotsearch.hppc.ObjectLongHashMap;
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 
 public class FieldMemoryStatsTests extends OpenSearchTestCase {
 
@@ -55,21 +54,21 @@ public class FieldMemoryStatsTests extends OpenSearchTestCase {
         FieldMemoryStats stats = randomFieldMemoryStats();
         assertEquals(stats, stats);
         assertEquals(stats.hashCode(), stats.hashCode());
-        final Map<String, Long> map1 = new HashMap<>();
-        map1.put("bar", 1L);
+        ObjectLongHashMap<String> map1 = new ObjectLongHashMap<>();
+        map1.put("bar", 1);
         FieldMemoryStats stats1 = new FieldMemoryStats(map1);
-        final Map<String, Long> map2 = new HashMap<>();
-        map2.put("foo", 2L);
+        ObjectLongHashMap<String> map2 = new ObjectLongHashMap<>();
+        map2.put("foo", 2);
         FieldMemoryStats stats2 = new FieldMemoryStats(map2);
 
-        final Map<String, Long> map3 = new HashMap<>();
-        map3.put("foo", 2L);
-        map3.put("bar", 1L);
+        ObjectLongHashMap<String> map3 = new ObjectLongHashMap<>();
+        map3.put("foo", 2);
+        map3.put("bar", 1);
         FieldMemoryStats stats3 = new FieldMemoryStats(map3);
 
-        final Map<String, Long> map4 = new HashMap<>();
-        map4.put("foo", 2L);
-        map4.put("bar", 1L);
+        ObjectLongHashMap<String> map4 = new ObjectLongHashMap<>();
+        map4.put("foo", 2);
+        map4.put("bar", 1);
         FieldMemoryStats stats4 = new FieldMemoryStats(map4);
 
         assertNotEquals(stats1, stats2);
@@ -84,21 +83,21 @@ public class FieldMemoryStatsTests extends OpenSearchTestCase {
     }
 
     public void testAdd() {
-        final Map<String, Long> map1 = new HashMap<>();
-        map1.put("bar", 1L);
+        ObjectLongHashMap<String> map1 = new ObjectLongHashMap<>();
+        map1.put("bar", 1);
         FieldMemoryStats stats1 = new FieldMemoryStats(map1);
-        final Map<String, Long> map2 = new HashMap<>();
-        map2.put("foo", 2L);
+        ObjectLongHashMap<String> map2 = new ObjectLongHashMap<>();
+        map2.put("foo", 2);
         FieldMemoryStats stats2 = new FieldMemoryStats(map2);
 
-        final Map<String, Long> map3 = new HashMap<>();
-        map3.put("bar", 1L);
+        ObjectLongHashMap<String> map3 = new ObjectLongHashMap<>();
+        map3.put("bar", 1);
         FieldMemoryStats stats3 = new FieldMemoryStats(map3);
         stats3.add(stats1);
 
-        final Map<String, Long> map4 = new HashMap<>();
-        map4.put("foo", 2L);
-        map4.put("bar", 2L);
+        ObjectLongHashMap<String> map4 = new ObjectLongHashMap<>();
+        map4.put("foo", 2);
+        map4.put("bar", 2);
         FieldMemoryStats stats4 = new FieldMemoryStats(map4);
         assertNotEquals(stats3, stats4);
         stats3.add(stats2);
@@ -106,7 +105,7 @@ public class FieldMemoryStatsTests extends OpenSearchTestCase {
     }
 
     public static FieldMemoryStats randomFieldMemoryStats() {
-        final Map<String, Long> map = new HashMap<>();
+        ObjectLongHashMap<String> map = new ObjectLongHashMap<>();
         int keys = randomIntBetween(1, 1000);
         for (int i = 0; i < keys; i++) {
             map.put(randomRealisticUnicodeOfCodepointLengthBetween(1, 10), randomNonNegativeLong());

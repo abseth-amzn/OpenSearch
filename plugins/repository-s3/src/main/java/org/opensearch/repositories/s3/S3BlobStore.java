@@ -32,6 +32,12 @@
 
 package org.opensearch.repositories.s3;
 
+import com.amazonaws.Request;
+import com.amazonaws.Response;
+import com.amazonaws.metrics.RequestMetricCollector;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.StorageClass;
+import com.amazonaws.util.AWSRequestMetrics;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.cluster.metadata.RepositoryMetadata;
@@ -39,15 +45,13 @@ import org.opensearch.common.blobstore.BlobContainer;
 import org.opensearch.common.blobstore.BlobPath;
 import org.opensearch.common.blobstore.BlobStore;
 import org.opensearch.common.blobstore.BlobStoreException;
-import org.opensearch.core.common.unit.ByteSizeValue;
-import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
-import software.amazon.awssdk.services.s3.model.StorageClass;
-import org.opensearch.repositories.s3.async.AsyncExecutorContainer;
-import org.opensearch.repositories.s3.async.AsyncTransferManager;
+import org.opensearch.common.unit.ByteSizeValue;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 class S3BlobStore implements BlobStore {
 
@@ -55,57 +59,78 @@ class S3BlobStore implements BlobStore {
 
     private final S3Service service;
 
-    private final S3AsyncService s3AsyncService;
-
     private final String bucket;
 
     private final ByteSizeValue bufferSize;
 
     private final boolean serverSideEncryption;
 
-    private final ObjectCannedACL cannedACL;
+    private final CannedAccessControlList cannedACL;
 
     private final StorageClass storageClass;
 
     private final RepositoryMetadata repositoryMetadata;
 
-    private final StatsMetricPublisher statsMetricPublisher = new StatsMetricPublisher();
+    private final Stats stats = new Stats();
 
-    private final AsyncTransferManager asyncTransferManager;
-    private final AsyncExecutorContainer priorityExecutorBuilder;
-    private final AsyncExecutorContainer normalExecutorBuilder;
-    private final boolean multipartUploadEnabled;
+    final RequestMetricCollector getMetricCollector;
+    final RequestMetricCollector listMetricCollector;
+    final RequestMetricCollector putMetricCollector;
+    final RequestMetricCollector multiPartUploadMetricCollector;
 
     S3BlobStore(
         S3Service service,
-        S3AsyncService s3AsyncService,
-        boolean multipartUploadEnabled,
         String bucket,
         boolean serverSideEncryption,
         ByteSizeValue bufferSize,
         String cannedACL,
         String storageClass,
-        RepositoryMetadata repositoryMetadata,
-        AsyncTransferManager asyncTransferManager,
-        AsyncExecutorContainer priorityExecutorBuilder,
-        AsyncExecutorContainer normalExecutorBuilder
+        RepositoryMetadata repositoryMetadata
     ) {
         this.service = service;
-        this.s3AsyncService = s3AsyncService;
-        this.multipartUploadEnabled = multipartUploadEnabled;
         this.bucket = bucket;
         this.serverSideEncryption = serverSideEncryption;
         this.bufferSize = bufferSize;
         this.cannedACL = initCannedACL(cannedACL);
         this.storageClass = initStorageClass(storageClass);
         this.repositoryMetadata = repositoryMetadata;
-        this.asyncTransferManager = asyncTransferManager;
-        this.normalExecutorBuilder = normalExecutorBuilder;
-        this.priorityExecutorBuilder = priorityExecutorBuilder;
+        this.getMetricCollector = new RequestMetricCollector() {
+            @Override
+            public void collectMetrics(Request<?> request, Response<?> response) {
+                assert request.getHttpMethod().name().equals("GET");
+                stats.getCount.addAndGet(getRequestCount(request));
+            }
+        };
+        this.listMetricCollector = new RequestMetricCollector() {
+            @Override
+            public void collectMetrics(Request<?> request, Response<?> response) {
+                assert request.getHttpMethod().name().equals("GET");
+                stats.listCount.addAndGet(getRequestCount(request));
+            }
+        };
+        this.putMetricCollector = new RequestMetricCollector() {
+            @Override
+            public void collectMetrics(Request<?> request, Response<?> response) {
+                assert request.getHttpMethod().name().equals("PUT");
+                stats.putCount.addAndGet(getRequestCount(request));
+            }
+        };
+        this.multiPartUploadMetricCollector = new RequestMetricCollector() {
+            @Override
+            public void collectMetrics(Request<?> request, Response<?> response) {
+                assert request.getHttpMethod().name().equals("PUT") || request.getHttpMethod().name().equals("POST");
+                stats.postCount.addAndGet(getRequestCount(request));
+            }
+        };
     }
 
-    public boolean isMultipartUploadEnabled() {
-        return multipartUploadEnabled;
+    private long getRequestCount(Request<?> request) {
+        Number requestCount = request.getAWSRequestMetrics().getTimingInfo().getCounter(AWSRequestMetrics.Field.RequestCount.name());
+        if (requestCount == null) {
+            logger.warn("Expected request count to be tracked for request [{}] but found not count.", request);
+            return 0L;
+        }
+        return requestCount.longValue();
     }
 
     @Override
@@ -115,10 +140,6 @@ class S3BlobStore implements BlobStore {
 
     public AmazonS3Reference clientReference() {
         return service.client(repositoryMetadata);
-    }
-
-    public AmazonAsyncS3Reference asyncClientReference() {
-        return s3AsyncService.client(repositoryMetadata, priorityExecutorBuilder, normalExecutorBuilder);
     }
 
     int getMaxRetries() {
@@ -144,20 +165,15 @@ class S3BlobStore implements BlobStore {
 
     @Override
     public void close() throws IOException {
-        if (service != null) {
-            this.service.close();
-        }
-        if (s3AsyncService != null) {
-            this.s3AsyncService.close();
-        }
+        this.service.close();
     }
 
     @Override
     public Map<String, Long> stats() {
-        return statsMetricPublisher.getStats().toMap();
+        return stats.toMap();
     }
 
-    public ObjectCannedACL getCannedACL() {
+    public CannedAccessControlList getCannedACL() {
         return cannedACL;
     }
 
@@ -165,36 +181,32 @@ class S3BlobStore implements BlobStore {
         return storageClass;
     }
 
-    public StatsMetricPublisher getStatsMetricPublisher() {
-        return statsMetricPublisher;
-    }
-
-    public static StorageClass initStorageClass(String storageClassStringValue) {
-        if ((storageClassStringValue == null) || storageClassStringValue.equals("")) {
-            return StorageClass.STANDARD;
+    public static StorageClass initStorageClass(String storageClass) {
+        if ((storageClass == null) || storageClass.equals("")) {
+            return StorageClass.Standard;
         }
 
-        final StorageClass storageClass = StorageClass.fromValue(storageClassStringValue.toUpperCase(Locale.ENGLISH));
-        if (storageClass.equals(StorageClass.GLACIER)) {
-            throw new BlobStoreException("Glacier storage class is not supported");
-        }
+        try {
+            final StorageClass _storageClass = StorageClass.fromValue(storageClass.toUpperCase(Locale.ENGLISH));
+            if (_storageClass.equals(StorageClass.Glacier)) {
+                throw new BlobStoreException("Glacier storage class is not supported");
+            }
 
-        if (storageClass == StorageClass.UNKNOWN_TO_SDK_VERSION) {
-            throw new BlobStoreException("`" + storageClassStringValue + "` is not a valid S3 Storage Class.");
+            return _storageClass;
+        } catch (final IllegalArgumentException illegalArgumentException) {
+            throw new BlobStoreException("`" + storageClass + "` is not a valid S3 Storage Class.");
         }
-
-        return storageClass;
     }
 
     /**
      * Constructs canned acl from string
      */
-    public static ObjectCannedACL initCannedACL(String cannedACL) {
+    public static CannedAccessControlList initCannedACL(String cannedACL) {
         if ((cannedACL == null) || cannedACL.equals("")) {
-            return ObjectCannedACL.PRIVATE;
+            return CannedAccessControlList.Private;
         }
 
-        for (final ObjectCannedACL cur : ObjectCannedACL.values()) {
+        for (final CannedAccessControlList cur : CannedAccessControlList.values()) {
             if (cur.toString().equalsIgnoreCase(cannedACL)) {
                 return cur;
             }
@@ -203,7 +215,23 @@ class S3BlobStore implements BlobStore {
         throw new BlobStoreException("cannedACL is not valid: [" + cannedACL + "]");
     }
 
-    public AsyncTransferManager getAsyncTransferManager() {
-        return asyncTransferManager;
+    static class Stats {
+
+        final AtomicLong listCount = new AtomicLong();
+
+        final AtomicLong getCount = new AtomicLong();
+
+        final AtomicLong putCount = new AtomicLong();
+
+        final AtomicLong postCount = new AtomicLong();
+
+        Map<String, Long> toMap() {
+            final Map<String, Long> results = new HashMap<>();
+            results.put("GetObject", getCount.get());
+            results.put("ListObjects", listCount.get());
+            results.put("PutObject", putCount.get());
+            results.put("PutMultipartObject", postCount.get());
+            return results;
+        }
     }
 }

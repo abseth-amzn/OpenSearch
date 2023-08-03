@@ -32,8 +32,6 @@
 
 package org.opensearch.index;
 
-import org.opensearch.core.index.Index;
-
 /**
  * Actions that can be executed on an Index Component
  *

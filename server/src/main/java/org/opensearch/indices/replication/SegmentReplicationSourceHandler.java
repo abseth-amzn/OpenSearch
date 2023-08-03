@@ -19,7 +19,7 @@ import org.opensearch.common.logging.Loggers;
 import org.opensearch.common.util.CancellableThreads;
 import org.opensearch.common.util.concurrent.ListenableFuture;
 import org.opensearch.common.util.concurrent.OpenSearchExecutors;
-import org.opensearch.common.util.io.IOUtils;
+import org.opensearch.core.internal.io.IOUtils;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.index.store.StoreFileMetadata;
 import org.opensearch.indices.recovery.DelayRecoveryException;
@@ -32,7 +32,6 @@ import org.opensearch.transport.Transports;
 
 import java.io.Closeable;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -108,14 +107,6 @@ class SegmentReplicationSourceHandler {
      * @param listener {@link ActionListener} that completes with the list of files sent.
      */
     public synchronized void sendFiles(GetSegmentFilesRequest request, ActionListener<GetSegmentFilesResponse> listener) {
-        // Short circuit when no files to transfer
-        if (request.getFilesToFetch().isEmpty()) {
-            // before completion, alert the primary of the replica's state.
-            shard.updateVisibleCheckpointForShard(request.getTargetAllocationId(), copyState.getCheckpoint());
-            listener.onResponse(new GetSegmentFilesResponse(Collections.emptyList()));
-            return;
-        }
-
         final ReplicationTimer timer = new ReplicationTimer();
         if (isReplicating.compareAndSet(false, true) == false) {
             throw new OpenSearchException("Replication to {} is already running.", shard.shardId());
@@ -145,7 +136,7 @@ class SegmentReplicationSourceHandler {
                     timer.time()
                 );
             };
-            cancellableThreads.checkForCancel();
+
             final IndexShardRoutingTable routingTable = shard.getReplicationGroup().getRoutingTable();
             ShardRouting targetShardRouting = routingTable.getByAllocationId(request.getTargetAllocationId());
             if (targetShardRouting == null) {
@@ -170,9 +161,9 @@ class SegmentReplicationSourceHandler {
                 try {
                     shard.updateVisibleCheckpointForShard(allocationId, copyState.getCheckpoint());
                     future.onResponse(new GetSegmentFilesResponse(List.of(storeFileMetadata)));
-                    timer.stop();
                 } finally {
                     IOUtils.close(resources);
+                    timer.stop();
                     logger.trace(
                         "[replication id {}] Source node completed sending files to target node [{}], timing: {}",
                         request.getReplicationId(),

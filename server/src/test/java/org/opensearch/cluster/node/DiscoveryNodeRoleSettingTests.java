@@ -60,6 +60,10 @@ public class DiscoveryNodeRoleSettingTests extends OpenSearchTestCase {
         runRoleTest(DiscoveryNode::isClusterManagerNode, DiscoveryNodeRole.MASTER_ROLE);
     }
 
+    public void testIsClusterManagerNode() {
+        runRoleTest(DiscoveryNode::isClusterManagerNode, DiscoveryNodeRole.CLUSTER_MANAGER_ROLE);
+    }
+
     public void testIsRemoteClusterClient() {
         runRoleTest(DiscoveryNode::isRemoteClusterClient, DiscoveryNodeRole.REMOTE_CLUSTER_CLIENT_ROLE);
     }
@@ -92,4 +96,5 @@ public class DiscoveryNodeRoleSettingTests extends OpenSearchTestCase {
         assertThat(e.getMessage(), startsWith("can not explicitly configure node roles and use legacy role setting"));
         assertNoDeprecationWarnings();
     }
+
 }

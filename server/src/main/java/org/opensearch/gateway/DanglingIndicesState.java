@@ -32,6 +32,7 @@
 
 package org.opensearch.gateway;
 
+import com.carrotsearch.hppc.cursors.ObjectCursor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
@@ -45,7 +46,7 @@ import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.util.concurrent.ConcurrentCollections;
 import org.opensearch.env.NodeEnvironment;
-import org.opensearch.core.index.Index;
+import org.opensearch.index.Index;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -190,8 +191,8 @@ public class DanglingIndicesState implements ClusterStateListener {
      */
     public Map<Index, IndexMetadata> findNewDanglingIndices(Map<Index, IndexMetadata> existingDanglingIndices, final Metadata metadata) {
         final Set<String> excludeIndexPathIds = new HashSet<>(metadata.indices().size() + danglingIndices.size());
-        for (final IndexMetadata indexMetadata : metadata.indices().values()) {
-            excludeIndexPathIds.add(indexMetadata.getIndex().getUUID());
+        for (ObjectCursor<IndexMetadata> cursor : metadata.indices().values()) {
+            excludeIndexPathIds.add(cursor.value.getIndex().getUUID());
         }
         for (Index index : existingDanglingIndices.keySet()) {
             excludeIndexPathIds.add(index.getUUID());
@@ -255,7 +256,7 @@ public class DanglingIndicesState implements ClusterStateListener {
             logger.info(
                 "[{}] stripping aliases: {} from index before importing",
                 indexMetadata.getIndex(),
-                indexMetadata.getAliases().keySet()
+                indexMetadata.getAliases().keys()
             );
             return IndexMetadata.builder(indexMetadata).removeAllAliases().build();
         }

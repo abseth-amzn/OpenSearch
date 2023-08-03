@@ -32,6 +32,8 @@
 
 package org.opensearch.index.translog;
 
+import com.carrotsearch.hppc.LongHashSet;
+import com.carrotsearch.hppc.LongSet;
 import org.opensearch.OpenSearchException;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -40,9 +42,7 @@ import org.hamcrest.TypeSafeMatcher;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 public final class SnapshotMatchers {
@@ -217,7 +217,7 @@ public final class SnapshotMatchers {
         @Override
         protected boolean matchesSafely(Translog.Snapshot snapshot) {
             try {
-                final Set<Long> seqNoList = new HashSet<>();
+                final LongSet seqNoList = new LongHashSet();
                 Translog.Operation op;
                 while ((op = snapshot.next()) != null) {
                     seqNoList.add(op.seqNo());

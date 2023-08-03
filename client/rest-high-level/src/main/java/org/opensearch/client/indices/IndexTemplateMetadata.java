@@ -36,6 +36,7 @@ import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.Nullable;
 import org.opensearch.core.ParseField;
+import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.ConstructingObjectParser;
 import org.opensearch.core.xcontent.XContentParser;
@@ -43,8 +44,6 @@ import org.opensearch.index.mapper.MapperService;
 
 import java.io.IOException;
 import java.util.AbstractMap;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -60,7 +59,9 @@ public class IndexTemplateMetadata {
         true,
         (a, name) -> {
             List<Map.Entry<String, AliasMetadata>> alias = (List<Map.Entry<String, AliasMetadata>>) a[5];
-            final Map<String, AliasMetadata> aliasMap = alias.stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            ImmutableOpenMap<String, AliasMetadata> aliasMap = new ImmutableOpenMap.Builder<String, AliasMetadata>().putAll(
+                alias.stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
+            ).build();
             return new IndexTemplateMetadata(
                 name,
                 (Integer) a[0],
@@ -127,7 +128,7 @@ public class IndexTemplateMetadata {
 
     private final MappingMetadata mappings;
 
-    private final Map<String, AliasMetadata> aliases;
+    private final ImmutableOpenMap<String, AliasMetadata> aliases;
 
     public IndexTemplateMetadata(
         String name,
@@ -136,7 +137,7 @@ public class IndexTemplateMetadata {
         List<String> patterns,
         Settings settings,
         MappingMetadata mappings,
-        final Map<String, AliasMetadata> aliases
+        ImmutableOpenMap<String, AliasMetadata> aliases
     ) {
         if (patterns == null || patterns.isEmpty()) {
             throw new IllegalArgumentException("Index patterns must not be null or empty; got " + patterns);
@@ -147,7 +148,7 @@ public class IndexTemplateMetadata {
         this.patterns = patterns;
         this.settings = settings;
         this.mappings = mappings;
-        this.aliases = Collections.unmodifiableMap(aliases);
+        this.aliases = aliases;
     }
 
     public String name() {
@@ -175,7 +176,7 @@ public class IndexTemplateMetadata {
         return this.mappings;
     }
 
-    public Map<String, AliasMetadata> aliases() {
+    public ImmutableOpenMap<String, AliasMetadata> aliases() {
         return this.aliases;
     }
 
@@ -216,12 +217,12 @@ public class IndexTemplateMetadata {
 
         private MappingMetadata mappings;
 
-        private final Map<String, AliasMetadata> aliases;
+        private final ImmutableOpenMap.Builder<String, AliasMetadata> aliases;
 
         public Builder(String name) {
             this.name = name;
             mappings = null;
-            aliases = new HashMap<>();
+            aliases = ImmutableOpenMap.builder();
         }
 
         public Builder(IndexTemplateMetadata indexTemplateMetadata) {
@@ -232,7 +233,7 @@ public class IndexTemplateMetadata {
             settings(indexTemplateMetadata.settings());
 
             mappings = indexTemplateMetadata.mappings();
-            aliases = new HashMap<>(indexTemplateMetadata.aliases());
+            aliases = ImmutableOpenMap.builder(indexTemplateMetadata.aliases());
         }
 
         public Builder order(int order) {
@@ -276,7 +277,7 @@ public class IndexTemplateMetadata {
         }
 
         public IndexTemplateMetadata build() {
-            return new IndexTemplateMetadata(name, order, version, indexPatterns, settings, mappings, aliases);
+            return new IndexTemplateMetadata(name, order, version, indexPatterns, settings, mappings, aliases.build());
         }
 
         public static IndexTemplateMetadata fromXContent(XContentParser parser, String templateName) throws IOException {

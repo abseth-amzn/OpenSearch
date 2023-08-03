@@ -8,13 +8,9 @@
 
 package org.opensearch.extensions.action;
 
-import com.google.protobuf.ByteString;
-import org.opensearch.action.ActionRequest;
-import org.opensearch.action.ActionRequestValidationException;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.extensions.proto.ExtensionIdentityProto.ExtensionIdentity;
-import org.opensearch.extensions.proto.ExtensionTransportMessageProto.ExtensionTransportMessage;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.transport.TransportRequest;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -24,9 +20,19 @@ import java.util.Objects;
  *
  * @opensearch.api
  */
-public class TransportActionRequestFromExtension extends ActionRequest {
-    private final ExtensionIdentity identity;
-    private final ExtensionTransportMessage request;
+public class TransportActionRequestFromExtension extends TransportRequest {
+    /**
+     * action is the transport action intended to be invoked which is registered by an extension via {@link ExtensionTransportActionsHandler}.
+     */
+    private final String action;
+    /**
+     * requestBytes is the raw bytes being transported between extensions.
+     */
+    private final byte[] requestBytes;
+    /**
+     * uniqueId to identify which extension is making a transport request call.
+     */
+    private final String uniqueId;
 
     /**
      * TransportActionRequestFromExtension constructor.
@@ -35,9 +41,10 @@ public class TransportActionRequestFromExtension extends ActionRequest {
      * @param requestBytes is the raw bytes being transported between extensions.
      * @param uniqueId to identify which extension is making a transport request call.
      */
-    public TransportActionRequestFromExtension(String action, ByteString requestBytes, String uniqueId) {
-        this.identity = ExtensionIdentity.newBuilder().setUniqueId(uniqueId).build();
-        this.request = ExtensionTransportMessage.newBuilder().setAction(action).setRequestBytes(requestBytes).build();
+    public TransportActionRequestFromExtension(String action, byte[] requestBytes, String uniqueId) {
+        this.action = action;
+        this.requestBytes = requestBytes;
+        this.uniqueId = uniqueId;
     }
 
     /**
@@ -48,43 +55,34 @@ public class TransportActionRequestFromExtension extends ActionRequest {
      */
     public TransportActionRequestFromExtension(StreamInput in) throws IOException {
         super(in);
-        this.identity = ExtensionIdentity.parseFrom(in.readByteArray());
-        this.request = ExtensionTransportMessage.parseFrom(in.readByteArray());
+        this.action = in.readString();
+        this.requestBytes = in.readByteArray();
+        this.uniqueId = in.readString();
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        out.writeByteArray(identity.toByteArray());
-        out.writeByteArray(request.toByteArray());
+        out.writeString(action);
+        out.writeByteArray(requestBytes);
+        out.writeString(uniqueId);
     }
 
     public String getAction() {
-        return this.request.getAction();
+        return this.action;
     }
 
-    public ByteString getRequestBytes() {
-        return this.request.getRequestBytes();
+    public byte[] getRequestBytes() {
+        return this.requestBytes;
     }
 
     public String getUniqueId() {
-        return this.identity.getUniqueId();
-    }
-
-    @Override
-    public ActionRequestValidationException validate() {
-        return null;
+        return this.uniqueId;
     }
 
     @Override
     public String toString() {
-        return "TransportActionRequestFromExtension{action="
-            + request.getAction()
-            + ", requestBytes="
-            + request.getRequestBytes()
-            + ", uniqueId="
-            + identity.getUniqueId()
-            + "}";
+        return "TransportActionRequestFromExtension{action=" + action + ", requestBytes=" + requestBytes + ", uniqueId=" + uniqueId + "}";
     }
 
     @Override
@@ -92,13 +90,13 @@ public class TransportActionRequestFromExtension extends ActionRequest {
         if (this == obj) return true;
         if (obj == null || getClass() != obj.getClass()) return false;
         TransportActionRequestFromExtension that = (TransportActionRequestFromExtension) obj;
-        return Objects.equals(request.getAction(), that.request.getAction())
-            && Objects.equals(request.getRequestBytes(), that.request.getRequestBytes())
-            && Objects.equals(identity.getUniqueId(), that.identity.getUniqueId());
+        return Objects.equals(action, that.action)
+            && Objects.equals(requestBytes, that.requestBytes)
+            && Objects.equals(uniqueId, that.uniqueId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(request.getAction(), request.getRequestBytes(), identity.getUniqueId());
+        return Objects.hash(action, requestBytes, uniqueId);
     }
 }

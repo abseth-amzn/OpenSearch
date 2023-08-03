@@ -223,17 +223,15 @@ final public class Checkpoint {
         }
     }
 
-    public static void write(FileChannel fileChannel, Path checkpointFile, Checkpoint checkpoint, boolean fsync) throws IOException {
+    public static void write(FileChannel fileChannel, Path checkpointFile, Checkpoint checkpoint) throws IOException {
         byte[] bytes = createCheckpointBytes(checkpointFile, checkpoint);
         Channels.writeToChannel(bytes, fileChannel, 0);
-        if (fsync == true) {
-            // no need to force metadata, file size stays the same and we did the full fsync
-            // when we first created the file, so the directory entry doesn't change as well
-            fileChannel.force(false);
-        }
+        // no need to force metadata, file size stays the same and we did the full fsync
+        // when we first created the file, so the directory entry doesn't change as well
+        fileChannel.force(false);
     }
 
-    public static byte[] createCheckpointBytes(Path checkpointFile, Checkpoint checkpoint) throws IOException {
+    private static byte[] createCheckpointBytes(Path checkpointFile, Checkpoint checkpoint) throws IOException {
         final ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream(V4_FILE_SIZE) {
             @Override
             public synchronized byte[] toByteArray() {

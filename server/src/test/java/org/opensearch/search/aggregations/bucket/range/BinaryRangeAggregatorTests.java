@@ -45,6 +45,8 @@ import org.opensearch.search.aggregations.bucket.range.BinaryRangeAggregator.Sor
 import org.opensearch.search.aggregations.bucket.range.BinaryRangeAggregator.SortedSetRangeLeafCollector;
 import org.opensearch.test.OpenSearchTestCase;
 
+import com.carrotsearch.hppc.LongHashSet;
+
 public class BinaryRangeAggregatorTests extends OpenSearchTestCase {
 
     private static class FakeSortedSetDocValues extends AbstractSortedSetDocValues {
@@ -119,12 +121,12 @@ public class BinaryRangeAggregatorTests extends OpenSearchTestCase {
         final int[] expectedCounts = new int[ranges.length];
         final int maxDoc = randomIntBetween(5, 10);
         for (int doc = 0; doc < maxDoc; ++doc) {
-            Set<Long> ordinalSet = new HashSet<>();
+            LongHashSet ordinalSet = new LongHashSet();
             final int numValues = randomInt(maxNumValuesPerDoc);
             while (ordinalSet.size() < numValues) {
-                ordinalSet.add(TestUtil.nextLong(random(), 0, terms.length - 1));
+                ordinalSet.add(random().nextInt(terms.length));
             }
-            final long[] ords = ordinalSet.stream().mapToLong(Long::longValue).toArray();
+            final long[] ords = ordinalSet.toArray();
             Arrays.sort(ords);
             values.ords = ords;
 
@@ -220,12 +222,12 @@ public class BinaryRangeAggregatorTests extends OpenSearchTestCase {
         final int[] expectedCounts = new int[ranges.length];
         final int maxDoc = randomIntBetween(5, 10);
         for (int doc = 0; doc < maxDoc; ++doc) {
-            Set<Long> ordinalSet = new HashSet<>();
+            LongHashSet ordinalSet = new LongHashSet();
             final int numValues = randomInt(maxNumValuesPerDoc);
             while (ordinalSet.size() < numValues) {
-                ordinalSet.add(TestUtil.nextLong(random(), 0, terms.length - 1));
+                ordinalSet.add(random().nextInt(terms.length));
             }
-            final long[] ords = ordinalSet.stream().mapToLong(Long::longValue).toArray();
+            final long[] ords = ordinalSet.toArray();
             Arrays.sort(ords);
             values.ords = ords;
 

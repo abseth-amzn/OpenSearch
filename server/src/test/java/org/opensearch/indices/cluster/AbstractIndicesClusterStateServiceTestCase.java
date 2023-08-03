@@ -43,16 +43,15 @@ import org.opensearch.cluster.routing.ShardRouting;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.core.index.Index;
+import org.opensearch.index.Index;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.IndexSettings;
-import org.opensearch.index.remote.RemoteRefreshSegmentPressureService;
 import org.opensearch.index.seqno.RetentionLeaseSyncer;
 import org.opensearch.index.shard.IndexEventListener;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.index.shard.IndexShardState;
 import org.opensearch.index.shard.PrimaryReplicaSyncer.ResyncTask;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.indices.IndicesService;
 import org.opensearch.indices.cluster.IndicesClusterStateService.AllocatedIndex;
 import org.opensearch.indices.cluster.IndicesClusterStateService.AllocatedIndices;
@@ -263,8 +262,7 @@ public abstract class AbstractIndicesClusterStateServiceTestCase extends OpenSea
             final Consumer<ShardId> globalCheckpointSyncer,
             final RetentionLeaseSyncer retentionLeaseSyncer,
             final DiscoveryNode targetNode,
-            final DiscoveryNode sourceNode,
-            final RemoteRefreshSegmentPressureService remoteRefreshSegmentPressureService
+            final DiscoveryNode sourceNode
         ) throws IOException {
             failRandomly();
             RecoveryState recoveryState = new RecoveryState(shardRouting, targetNode, sourceNode);

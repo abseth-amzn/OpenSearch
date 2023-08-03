@@ -32,17 +32,17 @@
 
 package org.opensearch.search.dfs;
 
+import com.carrotsearch.hppc.ObjectObjectHashMap;
+import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.CollectionStatistics;
 import org.apache.lucene.search.TermStatistics;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.core.common.io.stream.Writeable;
+import org.opensearch.common.collect.HppcMaps;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.Writeable;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Compute global distributed frequency across the index
@@ -51,26 +51,25 @@ import java.util.Map;
  */
 public class AggregatedDfs implements Writeable {
 
-    private Map<Term, TermStatistics> termStatistics;
-    private Map<String, CollectionStatistics> fieldStatistics;
+    private ObjectObjectHashMap<Term, TermStatistics> termStatistics;
+    private ObjectObjectHashMap<String, CollectionStatistics> fieldStatistics;
     private long maxDoc;
 
     public AggregatedDfs(StreamInput in) throws IOException {
         int size = in.readVInt();
-        final Map<Term, TermStatistics> termStatistics = new HashMap<>(size);
+        termStatistics = HppcMaps.newMap(size);
         for (int i = 0; i < size; i++) {
             Term term = new Term(in.readString(), in.readBytesRef());
             TermStatistics stats = new TermStatistics(in.readBytesRef(), in.readVLong(), DfsSearchResult.subOne(in.readVLong()));
             termStatistics.put(term, stats);
         }
-        this.termStatistics = Collections.unmodifiableMap(termStatistics);
-        this.fieldStatistics = DfsSearchResult.readFieldStats(in);
+        fieldStatistics = DfsSearchResult.readFieldStats(in);
         maxDoc = in.readVLong();
     }
 
     public AggregatedDfs(
-        final Map<Term, TermStatistics> termStatistics,
-        final Map<String, CollectionStatistics> fieldStatistics,
+        ObjectObjectHashMap<Term, TermStatistics> termStatistics,
+        ObjectObjectHashMap<String, CollectionStatistics> fieldStatistics,
         long maxDoc
     ) {
         this.termStatistics = termStatistics;
@@ -78,11 +77,11 @@ public class AggregatedDfs implements Writeable {
         this.maxDoc = maxDoc;
     }
 
-    public Map<Term, TermStatistics> termStatistics() {
+    public ObjectObjectHashMap<Term, TermStatistics> termStatistics() {
         return termStatistics;
     }
 
-    public Map<String, CollectionStatistics> fieldStatistics() {
+    public ObjectObjectHashMap<String, CollectionStatistics> fieldStatistics() {
         return fieldStatistics;
     }
 
@@ -94,11 +93,11 @@ public class AggregatedDfs implements Writeable {
     public void writeTo(final StreamOutput out) throws IOException {
         out.writeVInt(termStatistics.size());
 
-        for (final Map.Entry<Term, TermStatistics> c : termStatistics().entrySet()) {
-            Term term = c.getKey();
+        for (ObjectObjectCursor<Term, TermStatistics> c : termStatistics()) {
+            Term term = c.key;
             out.writeString(term.field());
             out.writeBytesRef(term.bytes());
-            TermStatistics stats = c.getValue();
+            TermStatistics stats = c.value;
             out.writeBytesRef(stats.term());
             out.writeVLong(stats.docFreq());
             out.writeVLong(DfsSearchResult.addOne(stats.totalTermFreq()));

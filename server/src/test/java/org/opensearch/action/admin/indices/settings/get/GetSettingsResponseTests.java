@@ -32,7 +32,8 @@
 
 package org.opensearch.action.admin.indices.settings.get;
 
-import org.opensearch.core.common.io.stream.Writeable;
+import org.opensearch.common.collect.ImmutableOpenMap;
+import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.settings.IndexScopedSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentParser;
@@ -40,10 +41,8 @@ import org.opensearch.index.RandomCreateIndexGenerator;
 import org.opensearch.test.AbstractSerializingTestCase;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -73,7 +72,9 @@ public class GetSettingsResponseTests extends AbstractSerializingTestCase<GetSet
             builder.put("index.refresh_interval", "1s");
             indexToSettings.put(indexName, builder.build());
         }
-        final Map<String, Settings> immutableIndexToSettings = Collections.unmodifiableMap(indexToSettings);
+        ImmutableOpenMap<String, Settings> immutableIndexToSettings = ImmutableOpenMap.<String, Settings>builder()
+            .putAll(indexToSettings)
+            .build();
 
         if (randomBoolean()) {
             for (String indexName : indexToSettings.keySet()) {
@@ -82,7 +83,9 @@ public class GetSettingsResponseTests extends AbstractSerializingTestCase<GetSet
             }
         }
 
-        final Map<String, Settings> immutableIndexToDefaultSettings = Collections.unmodifiableMap(indexToDefaultSettings);
+        ImmutableOpenMap<String, Settings> immutableIndexToDefaultSettings = ImmutableOpenMap.<String, Settings>builder()
+            .putAll(indexToDefaultSettings)
+            .build();
 
         return new GetSettingsResponse(immutableIndexToSettings, immutableIndexToDefaultSettings);
     }

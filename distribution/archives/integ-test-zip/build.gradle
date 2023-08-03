@@ -36,10 +36,7 @@ apply plugin: 'opensearch.rest-test'
 apply plugin: 'opensearch.publish'
 apply plugin: 'com.netflix.nebula.maven-publish'
 
-base {
-  group = "org.opensearch.distribution.integ-test-zip"
-  archivesBaseName = "opensearch"
-}
+group = "org.opensearch.distribution.integ-test-zip"
 
 integTest {
   dependsOn assemble
@@ -51,6 +48,7 @@ processTestResources {
 }
 
 // make the pom file name use opensearch instead of the project name
+archivesBaseName = "opensearch"
 ext.buildDist = parent.tasks.named("buildIntegTestZip")
 
 publishing {

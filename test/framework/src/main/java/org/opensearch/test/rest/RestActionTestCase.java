@@ -38,8 +38,7 @@ import org.opensearch.action.ActionResponse;
 import org.opensearch.action.ActionType;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.identity.IdentityService;
-import org.opensearch.core.indices.breaker.NoneCircuitBreakerService;
+import org.opensearch.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestRequest;
@@ -52,7 +51,6 @@ import org.junit.After;
 import org.junit.Before;
 
 import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 
@@ -67,15 +65,7 @@ public abstract class RestActionTestCase extends OpenSearchTestCase {
     @Before
     public void setUpController() {
         verifyingClient = new VerifyingClient(this.getTestName());
-        final IdentityService identityService = new IdentityService(Settings.EMPTY, List.of());
-        controller = new RestController(
-            Collections.emptySet(),
-            null,
-            verifyingClient,
-            new NoneCircuitBreakerService(),
-            new UsageService(),
-            identityService
-        );
+        controller = new RestController(Collections.emptySet(), null, verifyingClient, new NoneCircuitBreakerService(), new UsageService());
     }
 
     @After
@@ -132,7 +122,7 @@ public abstract class RestActionTestCase extends OpenSearchTestCase {
          * @param verifier A function which is called in place of {@link #doExecute(ActionType, ActionRequest, ActionListener)}
          */
         public <Request extends ActionRequest, Response extends ActionResponse> void setExecuteVerifier(
-            BiFunction<ActionType<Response>, Request, Response> verifier
+            BiFunction<ActionType<Response>, Request, Void> verifier
         ) {
             executeVerifier.set(verifier);
         }
@@ -152,7 +142,7 @@ public abstract class RestActionTestCase extends OpenSearchTestCase {
          * @param verifier A function which is called in place of {@link #executeLocally(ActionType, ActionRequest, TaskListener)}
          */
         public <Request extends ActionRequest, Response extends ActionResponse> void setExecuteLocallyVerifier(
-            BiFunction<ActionType<Response>, Request, Response> verifier
+            BiFunction<ActionType<Response>, Request, Void> verifier
         ) {
             executeLocallyVerifier.set(verifier);
         }

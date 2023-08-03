@@ -34,7 +34,6 @@ package org.opensearch.index.search;
 
 import org.apache.lucene.index.MultiReader;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.PhraseQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
@@ -113,7 +112,7 @@ public class OpenSearchToParentBlockJoinQueryTests extends OpenSearchTestCase {
             ScoreMode.Avg,
             "nested"
         );
-        Query rewritten = q.rewrite(new IndexSearcher(new MultiReader()));
+        Query rewritten = q.rewrite(new MultiReader());
         assertEquals(expected, rewritten);
     }
 }

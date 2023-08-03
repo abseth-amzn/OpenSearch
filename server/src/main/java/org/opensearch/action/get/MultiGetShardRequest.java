@@ -32,10 +32,11 @@
 
 package org.opensearch.action.get;
 
+import com.carrotsearch.hppc.IntArrayList;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.single.shard.SingleShardRequest;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -53,13 +54,13 @@ public class MultiGetShardRequest extends SingleShardRequest<MultiGetShardReques
     private boolean realtime;
     private boolean refresh;
 
-    List<Integer> locations;
+    IntArrayList locations;
     List<MultiGetRequest.Item> items;
 
     MultiGetShardRequest(StreamInput in) throws IOException {
         super(in);
         int size = in.readVInt();
-        locations = new ArrayList<>(size);
+        locations = new IntArrayList(size);
         items = new ArrayList<>(size);
 
         for (int i = 0; i < size; i++) {
@@ -75,7 +76,7 @@ public class MultiGetShardRequest extends SingleShardRequest<MultiGetShardReques
     MultiGetShardRequest(MultiGetRequest multiGetRequest, String index, int shardId) {
         super(index);
         this.shardId = shardId;
-        locations = new ArrayList<>();
+        locations = new IntArrayList();
         items = new ArrayList<>();
         preference = multiGetRequest.preference;
         realtime = multiGetRequest.realtime;
@@ -93,8 +94,7 @@ public class MultiGetShardRequest extends SingleShardRequest<MultiGetShardReques
 
     /**
      * Sets the preference to execute the search. Defaults to randomize across shards. Can be set to
-     * {@code _local} to prefer local shards, {@code _primary} to execute only on primary shards,
-     * or a custom value, which guarantees that the same order
+     * {@code _local} to prefer local shards or a custom value, which guarantees that the same order
      * will be used across different requests.
      */
     public MultiGetShardRequest preference(String preference) {

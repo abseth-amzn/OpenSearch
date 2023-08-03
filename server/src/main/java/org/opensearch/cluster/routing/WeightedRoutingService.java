@@ -8,6 +8,8 @@
 
 package org.opensearch.cluster.routing;
 
+import com.carrotsearch.hppc.ObjectIntHashMap;
+import com.carrotsearch.hppc.cursors.ObjectCursor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -210,10 +212,10 @@ public class WeightedRoutingService {
     private void ensureWeightsSetForAllDiscoveredAndForcedAwarenessValues(ClusterState state, ClusterPutWeightedRoutingRequest request) {
         String attributeName = request.getWeightedRouting().attributeName();
         // build attr_value -> nodes map
-        final Set<String> nodesPerAttribute = state.getRoutingNodes().nodesPerAttributesCounts(attributeName);
+        ObjectIntHashMap<String> nodesPerAttribute = state.getRoutingNodes().nodesPerAttributesCounts(attributeName);
         Set<String> discoveredAwarenessValues = new HashSet<>();
-        for (String stringObjectCursor : nodesPerAttribute) {
-            if (stringObjectCursor != null) discoveredAwarenessValues.add(stringObjectCursor);
+        for (ObjectCursor<String> stringObjectCursor : nodesPerAttribute.keys()) {
+            if (stringObjectCursor.value != null) discoveredAwarenessValues.add(stringObjectCursor.value);
         }
         Set<String> allAwarenessValues;
         if (forcedAwarenessAttributes.get(attributeName) == null) {

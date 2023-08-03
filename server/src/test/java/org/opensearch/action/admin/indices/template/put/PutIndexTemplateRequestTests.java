@@ -35,7 +35,6 @@ import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.admin.indices.alias.Alias;
 import org.opensearch.common.collect.MapBuilder;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentParser;
@@ -77,7 +76,7 @@ public class PutIndexTemplateRequestTests extends AbstractXContentTestCase<PutIn
         PutIndexTemplateRequest request1 = new PutIndexTemplateRequest("foo");
         PutIndexTemplateRequest request2 = new PutIndexTemplateRequest("bar");
         {
-            XContentBuilder builder = MediaTypeRegistry.contentBuilder(randomFrom(XContentType.values()));
+            XContentBuilder builder = XContentFactory.contentBuilder(randomFrom(XContentType.values()));
             builder.startObject()
                 .startObject("properties")
                 .startObject("field1")
@@ -93,7 +92,7 @@ public class PutIndexTemplateRequestTests extends AbstractXContentTestCase<PutIn
                 .endObject()
                 .endObject();
             request1.mapping(builder);
-            builder = MediaTypeRegistry.contentBuilder(randomFrom(XContentType.values()));
+            builder = XContentFactory.contentBuilder(randomFrom(XContentType.values()));
             builder.startObject()
                 .startObject("properties")
                 .startObject("field1")

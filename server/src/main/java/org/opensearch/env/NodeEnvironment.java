@@ -44,6 +44,7 @@ import org.apache.lucene.store.Lock;
 import org.apache.lucene.store.LockObtainFailedException;
 import org.apache.lucene.store.NIOFSDirectory;
 import org.apache.lucene.store.NativeFSLockFactory;
+import org.opensearch.ExceptionsHelper;
 import org.opensearch.OpenSearchException;
 import org.opensearch.Version;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -54,25 +55,33 @@ import org.opensearch.common.Randomness;
 import org.opensearch.common.SuppressForbidden;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.collect.Tuple;
+import org.opensearch.common.io.FileSystemUtils;
+import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Setting.Property;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.common.unit.ByteSizeValue;
+import org.opensearch.common.settings.SettingsException;
+import org.opensearch.common.unit.ByteSizeUnit;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.io.IOUtils;
-import org.opensearch.core.util.FileSystemUtils;
-import org.opensearch.common.lease.Releasable;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.core.internal.io.IOUtils;
 import org.opensearch.gateway.MetadataStateFormat;
 import org.opensearch.gateway.PersistedClusterStateService;
-import org.opensearch.core.index.Index;
+import org.opensearch.index.Index;
 import org.opensearch.index.IndexSettings;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.index.shard.ShardPath;
 import org.opensearch.index.store.FsDirectoryFactory;
+import org.opensearch.index.store.remote.filecache.FileCache;
+import org.opensearch.index.store.remote.filecache.FileCacheFactory;
+import org.opensearch.index.store.remote.filecache.FileCacheStats;
+import org.opensearch.index.store.remote.utils.cache.CacheUsage;
+import org.opensearch.index.store.remote.utils.cache.stats.CacheStats;
 import org.opensearch.monitor.fs.FsInfo;
 import org.opensearch.monitor.fs.FsProbe;
 import org.opensearch.monitor.jvm.JvmInfo;
+import org.opensearch.node.Node;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -104,6 +113,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.Collections.unmodifiableSet;
+import static org.opensearch.node.Node.NODE_SEARCH_CACHE_SIZE_SETTING;
 
 /**
  * A component that holds all data paths for a single node.
@@ -195,6 +205,8 @@ public final class NodeEnvironment implements Closeable {
     private final Map<ShardId, InternalShardLock> shardLocks = new HashMap<>();
 
     private final NodeMetadata nodeMetadata;
+
+    private FileCache fileCache;
 
     /**
      * Maximum number of data nodes that should run in an environment.
@@ -353,6 +365,8 @@ public final class NodeEnvironment implements Closeable {
             this.nodePaths = nodeLock.nodePaths;
             this.fileCacheNodePath = nodePaths[0];
 
+            initializeFileCache(settings);
+
             this.nodeLockId = nodeLock.nodeId;
 
             if (logger.isDebugEnabled()) {
@@ -387,6 +401,42 @@ public final class NodeEnvironment implements Closeable {
             if (success == false) {
                 close();
             }
+        }
+    }
+
+    /**
+     * Initializes the search cache with a defined capacity.
+     * The capacity of the cache is based on user configuration for {@link Node#NODE_SEARCH_CACHE_SIZE_SETTING}.
+     * If the user doesn't configure the cache size, it fails if the node is a data + search node.
+     * Else it configures the size to 80% of available capacity for a dedicated search node, if not explicitly defined.
+     */
+    private void initializeFileCache(Settings settings) throws IOException {
+        if (DiscoveryNode.isSearchNode(settings)) {
+            long capacity = NODE_SEARCH_CACHE_SIZE_SETTING.get(settings).getBytes();
+            FsInfo.Path info = ExceptionsHelper.catchAsRuntimeException(() -> FsProbe.getFSInfo(this.fileCacheNodePath));
+            long availableCapacity = info.getAvailable().getBytes();
+
+            // Initialize default values for cache if NODE_SEARCH_CACHE_SIZE_SETTING is not set.
+            if (capacity == 0) {
+                // If node is not a dedicated search node without configuration, prevent cache initialization
+                if (DiscoveryNode.getRolesFromSettings(settings).stream().anyMatch(role -> !DiscoveryNodeRole.SEARCH_ROLE.equals(role))) {
+                    throw new SettingsException(
+                        "Unable to initialize the "
+                            + DiscoveryNodeRole.SEARCH_ROLE.roleName()
+                            + "-"
+                            + DiscoveryNodeRole.DATA_ROLE.roleName()
+                            + " node: Missing value for configuration "
+                            + NODE_SEARCH_CACHE_SIZE_SETTING.getKey()
+                    );
+                } else {
+                    capacity = 80 * availableCapacity / 100;
+                }
+            }
+            capacity = Math.min(capacity, availableCapacity);
+            fileCacheNodePath.fileCacheReservedSize = new ByteSizeValue(capacity, ByteSizeUnit.BYTES);
+            this.fileCache = FileCacheFactory.createConcurrentLRUFileCache(capacity);
+            List<Path> fileCacheDataPaths = collectFileCacheDataPath(this.fileCacheNodePath);
+            this.fileCache.restoreFromDirectory(fileCacheDataPaths);
         }
     }
 
@@ -1246,16 +1296,23 @@ public final class NodeEnvironment implements Closeable {
      * Collect the path containing cache data in the indicated cache node path.
      * The returned paths will point to the shard data folder.
      */
-    public static List<Path> collectFileCacheDataPath(NodePath fileCacheNodePath) throws IOException {
-        // Structure is: <file cache path>/<index uuid>/<shard id>/...
+    static List<Path> collectFileCacheDataPath(NodePath fileCacheNodePath) throws IOException {
         List<Path> indexSubPaths = new ArrayList<>();
         Path fileCachePath = fileCacheNodePath.fileCachePath;
         if (Files.isDirectory(fileCachePath)) {
-            try (DirectoryStream<Path> indexStream = Files.newDirectoryStream(fileCachePath)) {
-                for (Path indexPath : indexStream) {
-                    if (Files.isDirectory(indexPath)) {
-                        try (Stream<Path> shardStream = Files.list(indexPath)) {
-                            shardStream.filter(NodeEnvironment::isShardPath).map(Path::toAbsolutePath).forEach(indexSubPaths::add);
+            try (DirectoryStream<Path> nodeStream = Files.newDirectoryStream(fileCachePath)) {
+                for (Path nodePath : nodeStream) {
+                    if (Files.isDirectory(nodePath)) {
+                        try (DirectoryStream<Path> indexStream = Files.newDirectoryStream(nodePath)) {
+                            for (Path indexPath : indexStream) {
+                                if (Files.isDirectory(indexPath)) {
+                                    try (Stream<Path> shardStream = Files.list(indexPath)) {
+                                        shardStream.filter(NodeEnvironment::isShardPath)
+                                            .map(Path::toAbsolutePath)
+                                            .forEach(indexSubPaths::add);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1300,7 +1357,9 @@ public final class NodeEnvironment implements Closeable {
      * @param shardId shard to resolve the path to
      */
     public Path resolveFileCacheLocation(final Path fileCachePath, final ShardId shardId) {
-        return fileCachePath.resolve(shardId.getIndex().getUUID()).resolve(Integer.toString(shardId.id()));
+        return fileCachePath.resolve(Integer.toString(nodeLockId))
+            .resolve(shardId.getIndex().getUUID())
+            .resolve(Integer.toString(shardId.id()));
     }
 
     /**
@@ -1380,5 +1439,35 @@ public final class NodeEnvironment implements Closeable {
                 throw new IOException("failed to test writes in data directory [" + path + "] write permission is required", ex);
             }
         }
+    }
+
+    /**
+     * Returns the {@link FileCache} instance for remote search node
+     */
+    public FileCache fileCache() {
+        return this.fileCache;
+    }
+
+    /**
+     * Returns the current {@link FileCacheStats} for remote search node
+     */
+    public FileCacheStats fileCacheStats() {
+        if (fileCache == null) {
+            return null;
+        }
+
+        CacheStats stats = fileCache.stats();
+        CacheUsage usage = fileCache.usage();
+        return new FileCacheStats(
+            System.currentTimeMillis(),
+            usage.activeUsage(),
+            fileCache.capacity(),
+            usage.usage(),
+            stats.evictionWeight(),
+            stats.removeWeight(),
+            stats.replaceCount(),
+            stats.hitCount(),
+            stats.missCount()
+        );
     }
 }

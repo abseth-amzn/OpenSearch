@@ -84,7 +84,8 @@ shadowJar {
 
 tasks.validateNebulaPom.dependsOn tasks.generatePomFileForShadowPublication
 tasks.validateShadowPom.dependsOn tasks.generatePomFileForNebulaPublication
-tasks.withType(AbstractPublishToMaven)*.dependsOn "generatePomFileForShadowPublication", "generatePomFileForNebulaPublication"
+tasks.publishNebulaPublicationToMavenLocal.dependsOn tasks.generatePomFileForShadowPublication
+tasks.publishShadowPublicationToMavenLocal.dependsOn tasks.generatePomFileForNebulaPublication
 
 tasks.named("dependencyLicenses").configure {
   mapping from: /asm-.*/, to: 'asm'
@@ -108,7 +109,7 @@ tasks.register("apiJavadoc", Javadoc) {
   source = sourceSets.main.allJava
   classpath = sourceSets.main.runtimeClasspath
   include '**/org/opensearch/painless/api/'
-  destinationDir = new File(file(java.docsDir), 'apiJavadoc')
+  destinationDir = new File(docsDir, 'apiJavadoc')
 }
 
 tasks.register("apiJavadocJar", Jar) {

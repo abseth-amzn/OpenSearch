@@ -38,6 +38,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.OriginalIndices;
 import org.opensearch.action.support.GroupedActionListener;
 import org.opensearch.action.support.IndicesOptions;
+import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodeRole;
@@ -48,7 +49,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ConcurrentCollections;
 import org.opensearch.common.util.concurrent.CountDown;
-import org.opensearch.common.util.io.IOUtils;
+import org.opensearch.core.internal.io.IOUtils;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.Closeable;
@@ -62,6 +63,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -326,23 +328,35 @@ public final class RemoteClusterService extends RemoteClusterAware implements Cl
     }
 
     /**
-     * Connects to all remote clusters in a non-blocking fashion. This should be called on node startup to establish an initial connection
+     * Connects to all remote clusters in a blocking fashion. This should be called on node startup to establish an initial connection
      * to all configured seed nodes.
      */
-    void initializeRemoteClusters(ActionListener<Void> listener) {
+    void initializeRemoteClusters() {
+        final TimeValue timeValue = REMOTE_INITIAL_CONNECTION_TIMEOUT_SETTING.get(settings);
+        final PlainActionFuture<Collection<Void>> future = new PlainActionFuture<>();
         Set<String> enabledClusters = RemoteClusterAware.getEnabledRemoteClusters(settings);
+
         if (enabledClusters.isEmpty()) {
-            listener.onResponse(null);
             return;
         }
 
-        GroupedActionListener<Void> groupListener = new GroupedActionListener<>(
-            ActionListener.wrap(r -> listener.onResponse(null), listener::onFailure),
-            enabledClusters.size()
-        );
-
+        GroupedActionListener<Void> listener = new GroupedActionListener<>(future, enabledClusters.size());
         for (String clusterAlias : enabledClusters) {
-            updateRemoteCluster(clusterAlias, settings, groupListener);
+            updateRemoteCluster(clusterAlias, settings, listener);
+        }
+
+        if (enabledClusters.isEmpty()) {
+            future.onResponse(null);
+        }
+
+        try {
+            future.get(timeValue.millis(), TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (TimeoutException ex) {
+            logger.warn("failed to connect to remote clusters within {}", timeValue.toString());
+        } catch (Exception e) {
+            throw new IllegalStateException("failed to connect to remote clusters", e);
         }
     }
 

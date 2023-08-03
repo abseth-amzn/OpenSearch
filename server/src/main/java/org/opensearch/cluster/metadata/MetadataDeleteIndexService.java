@@ -47,16 +47,16 @@ import org.opensearch.cluster.service.ClusterManagerTaskKeys;
 import org.opensearch.cluster.service.ClusterManagerTaskThrottler;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Priority;
+import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.set.Sets;
-import org.opensearch.core.index.Index;
+import org.opensearch.index.Index;
 import org.opensearch.snapshots.RestoreService;
 import org.opensearch.snapshots.SnapshotInProgressException;
 import org.opensearch.snapshots.SnapshotsService;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -185,13 +185,13 @@ public class MetadataDeleteIndexService {
         ClusterBlocks blocks = clusterBlocksBuilder.build();
 
         // update snapshot restore entries
-        Map<String, ClusterState.Custom> customs = currentState.getCustoms();
+        ImmutableOpenMap<String, ClusterState.Custom> customs = currentState.getCustoms();
         final RestoreInProgress restoreInProgress = currentState.custom(RestoreInProgress.TYPE, RestoreInProgress.EMPTY);
         RestoreInProgress updatedRestoreInProgress = RestoreService.updateRestoreStateWithDeletedIndices(restoreInProgress, indices);
         if (updatedRestoreInProgress != restoreInProgress) {
-            final Map<String, ClusterState.Custom> builder = new HashMap<>(customs);
+            ImmutableOpenMap.Builder<String, ClusterState.Custom> builder = ImmutableOpenMap.builder(customs);
             builder.put(RestoreInProgress.TYPE, updatedRestoreInProgress);
-            customs = Collections.unmodifiableMap(builder);
+            customs = builder.build();
         }
 
         return allocationService.reroute(

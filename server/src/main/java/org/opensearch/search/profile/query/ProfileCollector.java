@@ -50,8 +50,6 @@ import java.io.IOException;
 final class ProfileCollector extends FilterCollector {
 
     private long time;
-    private long sliceStartTime;
-    private boolean isStarted;
 
     /** Sole constructor. */
     ProfileCollector(Collector in) {
@@ -69,10 +67,6 @@ final class ProfileCollector extends FilterCollector {
         try {
             return super.scoreMode();
         } finally {
-            if (isStarted == false) {
-                sliceStartTime = start;
-                isStarted = true;
-            }
             time += Math.max(1, System.nanoTime() - start);
         }
     }
@@ -84,10 +78,6 @@ final class ProfileCollector extends FilterCollector {
         try {
             inLeafCollector = super.getLeafCollector(context);
         } finally {
-            if (isStarted == false) {
-                sliceStartTime = start;
-                isStarted = true;
-            }
             time += Math.max(1, System.nanoTime() - start);
         }
         return new FilterLeafCollector(inLeafCollector) {
@@ -119,8 +109,4 @@ final class ProfileCollector extends FilterCollector {
         return time;
     }
 
-    /** Return the start time on this collector. */
-    public long getSliceStartTime() {
-        return sliceStartTime;
-    }
 }

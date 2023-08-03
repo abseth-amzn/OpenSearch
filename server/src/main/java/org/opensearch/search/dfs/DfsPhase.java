@@ -32,12 +32,14 @@
 
 package org.opensearch.search.dfs;
 
+import com.carrotsearch.hppc.ObjectObjectHashMap;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.CollectionStatistics;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.TermStatistics;
+import org.opensearch.common.collect.HppcMaps;
 import org.opensearch.search.internal.SearchContext;
 import org.opensearch.search.rescore.RescoreContext;
 import org.opensearch.tasks.TaskCancelledException;
@@ -56,7 +58,7 @@ public class DfsPhase {
 
     public void execute(SearchContext context) {
         try {
-            Map<String, CollectionStatistics> fieldStatistics = new HashMap<>();
+            ObjectObjectHashMap<String, CollectionStatistics> fieldStatistics = HppcMaps.newNoNullKeysMap();
             Map<Term, TermStatistics> stats = new HashMap<>();
             IndexSearcher searcher = new IndexSearcher(context.searcher().getIndexReader()) {
                 @Override

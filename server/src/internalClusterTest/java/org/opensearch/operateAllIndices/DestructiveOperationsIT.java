@@ -32,6 +32,7 @@
 
 package org.opensearch.operateAllIndices;
 
+import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import org.opensearch.action.support.DestructiveOperations;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -108,8 +109,8 @@ public class DestructiveOperationsIT extends OpenSearchIntegTestCase {
         }
 
         ClusterState state = client().admin().cluster().prepareState().get().getState();
-        for (final IndexMetadata indexMetadataObjectObjectCursor : state.getMetadata().indices().values()) {
-            assertEquals(IndexMetadata.State.CLOSE, indexMetadataObjectObjectCursor.getState());
+        for (ObjectObjectCursor<String, IndexMetadata> indexMetadataObjectObjectCursor : state.getMetadata().indices()) {
+            assertEquals(IndexMetadata.State.CLOSE, indexMetadataObjectObjectCursor.value.getState());
         }
     }
 
@@ -140,8 +141,8 @@ public class DestructiveOperationsIT extends OpenSearchIntegTestCase {
         }
 
         ClusterState state = client().admin().cluster().prepareState().get().getState();
-        for (final IndexMetadata indexMetadataObjectObjectCursor : state.getMetadata().indices().values()) {
-            assertEquals(IndexMetadata.State.OPEN, indexMetadataObjectObjectCursor.getState());
+        for (ObjectObjectCursor<String, IndexMetadata> indexMetadataObjectObjectCursor : state.getMetadata().indices()) {
+            assertEquals(IndexMetadata.State.OPEN, indexMetadataObjectObjectCursor.value.getState());
         }
     }
 }

@@ -68,7 +68,6 @@ public class ScriptModule {
             SignificantTermsHeuristicScoreScript.CONTEXT,
             IngestScript.CONTEXT,
             IngestConditionalScript.CONTEXT,
-            SearchScript.CONTEXT,
             FilterScript.CONTEXT,
             SimilarityScript.CONTEXT,
             SimilarityWeightScript.CONTEXT,

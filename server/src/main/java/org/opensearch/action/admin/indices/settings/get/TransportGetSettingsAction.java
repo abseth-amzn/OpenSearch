@@ -41,20 +41,19 @@ import org.opensearch.cluster.block.ClusterBlockLevel;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.regex.Regex;
 import org.opensearch.common.settings.IndexScopedSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.settings.SettingsFilter;
 import org.opensearch.common.util.CollectionUtils;
-import org.opensearch.core.index.Index;
+import org.opensearch.index.Index;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Transport action for getting index settings
@@ -113,8 +112,8 @@ public class TransportGetSettingsAction extends TransportClusterManagerNodeReadA
     @Override
     protected void clusterManagerOperation(GetSettingsRequest request, ClusterState state, ActionListener<GetSettingsResponse> listener) {
         Index[] concreteIndices = indexNameExpressionResolver.concreteIndices(state, request);
-        final Map<String, Settings> indexToSettingsBuilder = new HashMap<>();
-        final Map<String, Settings> indexToDefaultSettingsBuilder = new HashMap<>();
+        ImmutableOpenMap.Builder<String, Settings> indexToSettingsBuilder = ImmutableOpenMap.builder();
+        ImmutableOpenMap.Builder<String, Settings> indexToDefaultSettingsBuilder = ImmutableOpenMap.builder();
         for (Index concreteIndex : concreteIndices) {
             IndexMetadata indexMetadata = state.getMetadata().index(concreteIndex);
             if (indexMetadata == null) {
@@ -139,6 +138,6 @@ public class TransportGetSettingsAction extends TransportClusterManagerNodeReadA
                 indexToDefaultSettingsBuilder.put(concreteIndex.getName(), defaultSettings);
             }
         }
-        listener.onResponse(new GetSettingsResponse(indexToSettingsBuilder, indexToDefaultSettingsBuilder));
+        listener.onResponse(new GetSettingsResponse(indexToSettingsBuilder.build(), indexToDefaultSettingsBuilder.build()));
     }
 }

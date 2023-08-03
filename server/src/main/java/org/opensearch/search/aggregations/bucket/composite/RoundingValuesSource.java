@@ -66,11 +66,6 @@ class RoundingValuesSource extends ValuesSource.Numeric {
         return false;
     }
 
-    @Override
-    public boolean isBigInteger() {
-        return false;
-    }
-
     public long round(long value) {
         return rounding.round(value);
     }

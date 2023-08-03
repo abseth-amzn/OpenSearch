@@ -17,7 +17,7 @@ import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.util.concurrent.ConcurrentCollections;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.shard.IndexShard;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.indices.IndicesService;
 import org.opensearch.indices.recovery.FileChunkWriter;
 import org.opensearch.indices.recovery.RecoverySettings;
@@ -80,7 +80,7 @@ class OngoingSegmentReplications {
         } else {
             // From the checkpoint's shard ID, fetch the IndexShard
             ShardId shardId = checkpoint.getShardId();
-            final IndexService indexService = indicesService.indexServiceSafe(shardId.getIndex());
+            final IndexService indexService = indicesService.indexService(shardId.getIndex());
             final IndexShard indexShard = indexService.getShard(shardId.id());
             // build the CopyState object and cache it before returning
             final CopyState copyState = new CopyState(checkpoint, indexShard);
@@ -120,7 +120,15 @@ class OngoingSegmentReplications {
                     removeCopyState(sourceHandler.getCopyState());
                 }
             });
-            handler.sendFiles(request, wrappedListener);
+            if (request.getFilesToFetch().isEmpty()) {
+                // before completion, alert the primary of the replica's state.
+                handler.getCopyState()
+                    .getShard()
+                    .updateVisibleCheckpointForShard(request.getTargetAllocationId(), handler.getCopyState().getCheckpoint());
+                wrappedListener.onResponse(new GetSegmentFilesResponse(Collections.emptyList()));
+            } else {
+                handler.sendFiles(request, wrappedListener);
+            }
         } else {
             listener.onResponse(new GetSegmentFilesResponse(Collections.emptyList()));
         }
@@ -139,25 +147,13 @@ class OngoingSegmentReplications {
      */
     CopyState prepareForReplication(CheckpointInfoRequest request, FileChunkWriter fileChunkWriter) throws IOException {
         final CopyState copyState = getCachedCopyState(request.getCheckpoint());
-        final SegmentReplicationSourceHandler newHandler = createTargetHandler(
-            request.getTargetNode(),
-            copyState,
-            request.getTargetAllocationId(),
-            fileChunkWriter
-        );
-        final SegmentReplicationSourceHandler existingHandler = allocationIdToHandlers.putIfAbsent(
-            request.getTargetAllocationId(),
-            newHandler
-        );
-        // If we are already replicating to this allocation Id, cancel the old and replace with a new execution.
-        // This will clear the old handler & referenced copy state holding an incref'd indexCommit.
-        if (existingHandler != null) {
-            logger.warn("Override handler for allocation id {}", request.getTargetAllocationId());
-            cancelHandlers(handler -> handler.getAllocationId().equals(request.getTargetAllocationId()), "cancel due to retry");
-            assert allocationIdToHandlers.containsKey(request.getTargetAllocationId()) == false;
-            allocationIdToHandlers.put(request.getTargetAllocationId(), newHandler);
-        }
-        assert allocationIdToHandlers.containsKey(request.getTargetAllocationId());
+        allocationIdToHandlers.compute(request.getTargetAllocationId(), (allocationId, segrepHandler) -> {
+            if (segrepHandler != null) {
+                logger.warn("Override handler for allocation id {}", request.getTargetAllocationId());
+                cancelHandlers(handler -> handler.getAllocationId().equals(request.getTargetAllocationId()), "cancel due to retry");
+            }
+            return createTargetHandler(request.getTargetNode(), copyState, request.getTargetAllocationId(), fileChunkWriter);
+        });
         return copyState;
     }
 

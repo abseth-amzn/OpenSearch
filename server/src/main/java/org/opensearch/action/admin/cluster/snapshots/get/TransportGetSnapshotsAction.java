@@ -48,7 +48,7 @@ import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.regex.Regex;
 import org.opensearch.repositories.IndexId;
 import org.opensearch.repositories.RepositoriesService;
@@ -239,11 +239,9 @@ public class TransportGetSnapshotsAction extends TransportClusterManagerNodeActi
             repositoryName,
             snapshotIdsToIterate.stream().map(SnapshotId::getName).collect(Collectors.toList())
         );
-        // filter and incorporate the snapshots in progress
         for (SnapshotsInProgress.Entry entry : entries) {
-            if (snapshotIdsToIterate.remove(entry.snapshot().getSnapshotId())) {
-                snapshotSet.add(new SnapshotInfo(entry));
-            }
+            snapshotSet.add(new SnapshotInfo(entry));
+            snapshotIdsToIterate.remove(entry.snapshot().getSnapshotId());
         }
         // then, look in the repository
         final Repository repository = repositoriesService.repository(repositoryName);

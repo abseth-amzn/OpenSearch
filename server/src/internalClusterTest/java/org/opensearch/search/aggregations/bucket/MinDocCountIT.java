@@ -32,6 +32,8 @@
 
 package org.opensearch.search.aggregations.bucket;
 
+import com.carrotsearch.hppc.LongHashSet;
+import com.carrotsearch.hppc.LongSet;
 import com.carrotsearch.randomizedtesting.generators.RandomStrings;
 import org.opensearch.action.index.IndexRequestBuilder;
 import org.opensearch.action.search.SearchRequest;
@@ -120,7 +122,7 @@ public class MinDocCountIT extends AbstractTermsTestCase {
         cardinality = randomIntBetween(8, 30);
         final List<IndexRequestBuilder> indexRequests = new ArrayList<>();
         final Set<String> stringTerms = new HashSet<>();
-        final Set<Long> longTerms = new HashSet();
+        final LongSet longTerms = new LongHashSet();
         for (int i = 0; i < cardinality; ++i) {
             String stringTerm;
             do {

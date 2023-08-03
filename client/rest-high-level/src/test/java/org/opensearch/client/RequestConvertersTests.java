@@ -65,21 +65,20 @@ import org.opensearch.client.core.MultiTermVectorsRequest;
 import org.opensearch.client.core.TermVectorsRequest;
 import org.opensearch.client.indices.AnalyzeRequest;
 import org.opensearch.common.CheckedBiConsumer;
-import org.opensearch.core.common.bytes.BytesArray;
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.Strings;
+import org.opensearch.common.bytes.BytesArray;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.io.Streams;
 import org.opensearch.common.logging.DeprecationLogger;
 import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.xcontent.XContentHelper;
-import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.common.xcontent.json.JsonXContent;
-import org.opensearch.core.common.Strings;
-import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.index.VersionType;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.query.MatchAllQueryBuilder;
@@ -810,7 +809,7 @@ public class RequestConvertersTests extends OpenSearchTestCase {
 
         UpdateRequest parsedUpdateRequest = new UpdateRequest();
 
-        MediaType entityContentType = MediaType.fromMediaType(entity.getContentType());
+        XContentType entityContentType = XContentType.fromMediaType(entity.getContentType());
         try (XContentParser parser = createParser(entityContentType.xContent(), entity.getContent())) {
             parsedUpdateRequest.fromXContent(parser);
         }

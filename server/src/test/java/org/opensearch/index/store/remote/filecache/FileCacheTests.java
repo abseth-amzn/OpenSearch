@@ -11,12 +11,8 @@ package org.opensearch.index.store.remote.filecache;
 import org.apache.lucene.store.IndexInput;
 import org.junit.Before;
 import org.opensearch.common.SuppressForbidden;
-import org.opensearch.common.breaker.TestCircuitBreaker;
 import org.opensearch.env.NodeEnvironment;
 import org.opensearch.index.store.remote.directory.RemoteSnapshotDirectoryFactory;
-import org.opensearch.core.common.breaker.CircuitBreaker;
-import org.opensearch.core.common.breaker.CircuitBreakingException;
-import org.opensearch.core.common.breaker.NoopCircuitBreaker;
 import org.opensearch.index.store.remote.utils.cache.CacheUsage;
 import org.opensearch.test.OpenSearchTestCase;
 
@@ -31,6 +27,7 @@ public class FileCacheTests extends OpenSearchTestCase {
     // but fatal to these tests
     private final static int CONCURRENCY_LEVEL = 16;
     private final static int MEGA_BYTES = 1024 * 1024;
+    private final static int GIGA_BYTES = 1024 * 1024 * 1024;
     private final static String FAKE_PATH_SUFFIX = "Suffix";
     private Path path;
 
@@ -40,13 +37,7 @@ public class FileCacheTests extends OpenSearchTestCase {
     }
 
     private FileCache createFileCache(long capacity) {
-        return FileCacheFactory.createConcurrentLRUFileCache(capacity, CONCURRENCY_LEVEL, new NoopCircuitBreaker(CircuitBreaker.REQUEST));
-    }
-
-    private FileCache createCircuitBreakingFileCache(long capacity) {
-        TestCircuitBreaker testCircuitBreaker = new TestCircuitBreaker();
-        testCircuitBreaker.startBreaking();
-        return FileCacheFactory.createConcurrentLRUFileCache(capacity, CONCURRENCY_LEVEL, testCircuitBreaker);
+        return FileCacheFactory.createConcurrentLRUFileCache(capacity, CONCURRENCY_LEVEL);
     }
 
     private Path createPath(String middle) {
@@ -54,8 +45,9 @@ public class FileCacheTests extends OpenSearchTestCase {
     }
 
     @SuppressForbidden(reason = "creating a test file for cache")
-    private void createFile(String indexName, String shardId, String fileName) throws IOException {
+    private void createFile(String nodeId, String indexName, String shardId, String fileName) throws IOException {
         Path folderPath = path.resolve(NodeEnvironment.CACHE_FOLDER)
+            .resolve(nodeId)
             .resolve(indexName)
             .resolve(shardId)
             .resolve(RemoteSnapshotDirectoryFactory.LOCAL_STORE_LOCATION);
@@ -65,11 +57,15 @@ public class FileCacheTests extends OpenSearchTestCase {
         Files.write(filePath, "test-data".getBytes());
     }
 
+    public void testCreateCacheWithSmallSegments() {
+        assertThrows(IllegalStateException.class, () -> { FileCacheFactory.createConcurrentLRUFileCache(1000, CONCURRENCY_LEVEL); });
+    }
+
     // test get method
     public void testGet() {
-        FileCache fileCache = createFileCache(8 * MEGA_BYTES);
+        FileCache fileCache = createFileCache(GIGA_BYTES);
         for (int i = 0; i < 4; i++) {
-            fileCache.put(createPath(Integer.toString(i)), new StubCachedIndexInput(8 * MEGA_BYTES));
+            fileCache.put(createPath(Integer.toString(i)), new FakeIndexInput(8 * MEGA_BYTES));
         }
         // verify all blocks are put into file cache
         for (int i = 0; i < 4; i++) {
@@ -79,29 +75,22 @@ public class FileCacheTests extends OpenSearchTestCase {
 
     public void testGetThrowException() {
         assertThrows(NullPointerException.class, () -> {
-            FileCache fileCache = createFileCache(MEGA_BYTES);
+            FileCache fileCache = createFileCache(GIGA_BYTES);
             fileCache.get(null);
         });
     }
 
     public void testPutThrowException() {
         assertThrows(NullPointerException.class, () -> {
-            FileCache fileCache = createFileCache(MEGA_BYTES);
+            FileCache fileCache = createFileCache(GIGA_BYTES);
             fileCache.put(null, null);
         });
     }
 
-    public void testPutThrowCircuitBreakingException() {
-        FileCache fileCache = createCircuitBreakingFileCache(MEGA_BYTES);
-        Path path = createPath("0");
-        assertThrows(CircuitBreakingException.class, () -> fileCache.put(path, new StubCachedIndexInput(8 * MEGA_BYTES)));
-        assertNull(fileCache.get(path));
-    }
-
     public void testCompute() {
-        FileCache fileCache = createFileCache(MEGA_BYTES);
+        FileCache fileCache = createFileCache(GIGA_BYTES);
         Path path = createPath("0");
-        fileCache.put(path, new StubCachedIndexInput(8 * MEGA_BYTES));
+        fileCache.put(path, new FakeIndexInput(8 * MEGA_BYTES));
         fileCache.incRef(path);
         fileCache.compute(path, (p, i) -> null);
         // item will be removed
@@ -110,22 +99,15 @@ public class FileCacheTests extends OpenSearchTestCase {
 
     public void testComputeThrowException() {
         assertThrows(NullPointerException.class, () -> {
-            FileCache fileCache = createFileCache(MEGA_BYTES);
+            FileCache fileCache = createFileCache(GIGA_BYTES);
             fileCache.compute(null, null);
         });
     }
 
-    public void testComputeThrowCircuitBreakingException() {
-        FileCache fileCache = createCircuitBreakingFileCache(MEGA_BYTES);
-        Path path = createPath("0");
-        assertThrows(CircuitBreakingException.class, () -> fileCache.compute(path, (p, i) -> new StubCachedIndexInput(8 * MEGA_BYTES)));
-        assertNull(fileCache.get(path));
-    }
-
     public void testRemove() {
-        FileCache fileCache = createFileCache(MEGA_BYTES);
+        FileCache fileCache = createFileCache(GIGA_BYTES);
         for (int i = 0; i < 4; i++) {
-            fileCache.put(createPath(Integer.toString(i)), new StubCachedIndexInput(8 * MEGA_BYTES));
+            fileCache.put(createPath(Integer.toString(i)), new FakeIndexInput(8 * MEGA_BYTES));
         }
 
         fileCache.remove(createPath("0"));
@@ -138,15 +120,15 @@ public class FileCacheTests extends OpenSearchTestCase {
 
     public void testRemoveThrowException() {
         assertThrows(NullPointerException.class, () -> {
-            FileCache fileCache = createFileCache(MEGA_BYTES);
+            FileCache fileCache = createFileCache(GIGA_BYTES);
             fileCache.remove(null);
         });
     }
 
     public void testIncDecRef() {
-        FileCache fileCache = createFileCache(MEGA_BYTES);
+        FileCache fileCache = createFileCache(GIGA_BYTES);
         for (int i = 0; i < 4; i++) {
-            fileCache.put(createPath(Integer.toString(i)), new StubCachedIndexInput(8 * MEGA_BYTES));
+            fileCache.put(createPath(Integer.toString(i)), new FakeIndexInput(8 * MEGA_BYTES));
         }
 
         // try to evict previous IndexInput
@@ -177,7 +159,7 @@ public class FileCacheTests extends OpenSearchTestCase {
 
     public void testIncRefThrowException() {
         assertThrows(NullPointerException.class, () -> {
-            FileCache fileCache = createFileCache(MEGA_BYTES);
+            FileCache fileCache = createFileCache(GIGA_BYTES);
             fileCache.incRef(null);
         });
 
@@ -185,63 +167,41 @@ public class FileCacheTests extends OpenSearchTestCase {
 
     public void testDecRefThrowException() {
         assertThrows(NullPointerException.class, () -> {
-            FileCache fileCache = createFileCache(MEGA_BYTES);
+            FileCache fileCache = createFileCache(GIGA_BYTES);
             fileCache.decRef(null);
         });
 
     }
 
     public void testCapacity() {
-        FileCache fileCache = createFileCache(MEGA_BYTES);
-        assertEquals(fileCache.capacity(), MEGA_BYTES);
+        FileCache fileCache = createFileCache(GIGA_BYTES);
+        assertEquals(fileCache.capacity(), GIGA_BYTES);
     }
 
     public void testSize() {
-        FileCache fileCache = createFileCache(MEGA_BYTES);
+        FileCache fileCache = createFileCache(GIGA_BYTES);
         for (int i = 0; i < 4; i++) {
-            fileCache.put(createPath(Integer.toString(i)), new StubCachedIndexInput(8 * MEGA_BYTES));
+            fileCache.put(createPath(Integer.toString(i)), new FakeIndexInput(8 * MEGA_BYTES));
         }
         // test file cache size
         assertEquals(fileCache.size(), 4);
     }
 
     public void testPrune() {
-        FileCache fileCache = createFileCache(MEGA_BYTES);
+        FileCache fileCache = createFileCache(GIGA_BYTES);
         for (int i = 0; i < 4; i++) {
             putAndDecRef(fileCache, i, 8 * MEGA_BYTES);
         }
         // before prune
-        assertTrue(fileCache.size() >= 1);
+        assertEquals(fileCache.size(), 4);
 
         fileCache.prune();
         // after prune
-        assertEquals(0, fileCache.size());
-    }
-
-    public void testPruneWithPredicate() {
-        FileCache fileCache = createFileCache(MEGA_BYTES);
-        for (int i = 0; i < 4; i++) {
-            putAndDecRef(fileCache, i, 8 * MEGA_BYTES);
-        }
-
-        // before prune
-        assertTrue(fileCache.size() >= 1);
-
-        // after prune with false predicate
-        fileCache.prune(path -> false);
-        assertTrue(fileCache.size() >= 1);
-
-        // after prune with true predicate
-        fileCache.prune(path -> true);
-        assertEquals(0, fileCache.size());
+        assertEquals(fileCache.size(), 0);
     }
 
     public void testUsage() {
-        FileCache fileCache = FileCacheFactory.createConcurrentLRUFileCache(
-            16 * MEGA_BYTES,
-            1,
-            new NoopCircuitBreaker(CircuitBreaker.REQUEST)
-        );
+        FileCache fileCache = FileCacheFactory.createConcurrentLRUFileCache(16 * MEGA_BYTES, 1);
         putAndDecRef(fileCache, 0, 16 * MEGA_BYTES);
 
         CacheUsage expectedCacheUsage = new CacheUsage(16 * MEGA_BYTES, 0);
@@ -251,9 +211,9 @@ public class FileCacheTests extends OpenSearchTestCase {
     }
 
     public void testStats() {
-        FileCache fileCache = createFileCache(MEGA_BYTES);
+        FileCache fileCache = createFileCache(GIGA_BYTES);
         for (int i = 0; i < 4; i++) {
-            fileCache.put(createPath(Integer.toString(i)), new StubCachedIndexInput(8 * MEGA_BYTES));
+            fileCache.put(createPath(Integer.toString(i)), new FakeIndexInput(8 * MEGA_BYTES));
         }
         // cache hits
         fileCache.get(createPath("0"));
@@ -274,34 +234,45 @@ public class FileCacheTests extends OpenSearchTestCase {
     }
 
     public void testCacheRestore() throws IOException {
+        String nodeId = "0";
         String indexName = "test-index";
         String shardId = "0";
-        createFile(indexName, shardId, "test.0");
-        FileCache fileCache = createFileCache(MEGA_BYTES);
+        createFile(nodeId, indexName, shardId, "test.0");
+        FileCache fileCache = createFileCache(GIGA_BYTES);
         assertEquals(0, fileCache.usage().usage());
-        Path fileCachePath = path.resolve(NodeEnvironment.CACHE_FOLDER).resolve(indexName).resolve(shardId);
+        Path fileCachePath = path.resolve(NodeEnvironment.CACHE_FOLDER).resolve(nodeId).resolve(indexName).resolve(shardId);
         fileCache.restoreFromDirectory(List.of(fileCachePath));
         assertTrue(fileCache.usage().usage() > 0);
-        assertEquals(0, fileCache.usage().activeUsage());
     }
 
     private void putAndDecRef(FileCache cache, int path, long indexInputSize) {
         final Path key = createPath(Integer.toString(path));
-        cache.put(key, new StubCachedIndexInput(indexInputSize));
+        cache.put(key, new FakeIndexInput(indexInputSize));
         cache.decRef(key);
     }
 
-    public static class StubCachedIndexInput implements CachedIndexInput {
+    final class FakeIndexInput extends CachedIndexInput {
 
         private final long length;
 
-        public StubCachedIndexInput(long length) {
+        public FakeIndexInput(long length) {
+            super("dummy");
             this.length = length;
         }
 
         @Override
-        public IndexInput getIndexInput() {
-            return null;
+        public void close() throws IOException {
+            // no-op
+        }
+
+        @Override
+        public long getFilePointer() {
+            throw new UnsupportedOperationException("DummyIndexInput doesn't support getFilePointer().");
+        }
+
+        @Override
+        public void seek(long pos) throws IOException {
+            throw new UnsupportedOperationException("DummyIndexInput doesn't support seek().");
         }
 
         @Override
@@ -310,13 +281,28 @@ public class FileCacheTests extends OpenSearchTestCase {
         }
 
         @Override
-        public boolean isClosed() {
-            return false;
+        public IndexInput slice(String sliceDescription, long offset, long length) throws IOException {
+            throw new UnsupportedOperationException("DummyIndexInput couldn't be sliced.");
         }
 
         @Override
-        public void close() throws Exception {
+        public byte readByte() throws IOException {
+            throw new UnsupportedOperationException("DummyIndexInput doesn't support read.");
+        }
 
+        @Override
+        public void readBytes(byte[] b, int offset, int len) throws IOException {
+            throw new UnsupportedOperationException("DummyIndexInput doesn't support read.");
+        }
+
+        @Override
+        public IndexInput clone() {
+            throw new UnsupportedOperationException("DummyIndexInput couldn't be cloned.");
+        }
+
+        @Override
+        public boolean isClosed() {
+            return true;
         }
     }
 }

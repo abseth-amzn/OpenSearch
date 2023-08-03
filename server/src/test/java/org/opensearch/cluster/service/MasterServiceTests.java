@@ -86,8 +86,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.carrotsearch.randomizedtesting.annotations.Timeout;
-
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static org.hamcrest.Matchers.anyOf;
@@ -99,14 +97,14 @@ import static org.hamcrest.Matchers.is;
 public class MasterServiceTests extends OpenSearchTestCase {
 
     private static ThreadPool threadPool;
-    private static long timeDiffInMillis;
+    private static long relativeTimeInMillis;
 
     @BeforeClass
     public static void createThreadPool() {
         threadPool = new TestThreadPool(MasterServiceTests.class.getName()) {
             @Override
-            public long preciseRelativeTimeInNanos() {
-                return timeDiffInMillis * TimeValue.NSEC_PER_MSEC;
+            public long relativeTimeInMillis() {
+                return relativeTimeInMillis;
             }
         };
     }
@@ -121,7 +119,7 @@ public class MasterServiceTests extends OpenSearchTestCase {
 
     @Before
     public void randomizeCurrentTime() {
-        timeDiffInMillis = randomLongBetween(0L, 1L << 50);
+        relativeTimeInMillis = randomLongBetween(0L, 1L << 62);
     }
 
     private ClusterManagerService createClusterManagerService(boolean makeClusterManager) {
@@ -428,7 +426,7 @@ public class MasterServiceTests extends OpenSearchTestCase {
                 clusterManagerService.submitStateUpdateTask("test1", new ClusterStateUpdateTask() {
                     @Override
                     public ClusterState execute(ClusterState currentState) {
-                        timeDiffInMillis += TimeValue.timeValueSeconds(1).millis();
+                        relativeTimeInMillis += TimeValue.timeValueSeconds(1).millis();
                         return currentState;
                     }
 
@@ -443,7 +441,7 @@ public class MasterServiceTests extends OpenSearchTestCase {
                 clusterManagerService.submitStateUpdateTask("test2", new ClusterStateUpdateTask() {
                     @Override
                     public ClusterState execute(ClusterState currentState) {
-                        timeDiffInMillis += TimeValue.timeValueSeconds(2).millis();
+                        relativeTimeInMillis += TimeValue.timeValueSeconds(2).millis();
                         throw new IllegalArgumentException("Testing handling of exceptions in the cluster state task");
                     }
 
@@ -458,13 +456,13 @@ public class MasterServiceTests extends OpenSearchTestCase {
                 clusterManagerService.submitStateUpdateTask("test3", new ClusterStateUpdateTask() {
                     @Override
                     public ClusterState execute(ClusterState currentState) {
-                        timeDiffInMillis += TimeValue.timeValueSeconds(3).millis();
+                        relativeTimeInMillis += TimeValue.timeValueSeconds(3).millis();
                         return ClusterState.builder(currentState).incrementVersion().build();
                     }
 
                     @Override
                     public void clusterStateProcessed(String source, ClusterState oldState, ClusterState newState) {
-                        timeDiffInMillis += TimeValue.timeValueSeconds(4).millis();
+                        relativeTimeInMillis += TimeValue.timeValueSeconds(4).millis();
                     }
 
                     @Override
@@ -865,7 +863,6 @@ public class MasterServiceTests extends OpenSearchTestCase {
         AtomicInteger throttledTask3 = new AtomicInteger();
         AtomicInteger succeededTask1 = new AtomicInteger();
         AtomicInteger succeededTask2 = new AtomicInteger();
-        AtomicInteger succeededTask3 = new AtomicInteger();
         AtomicInteger timedOutTask3 = new AtomicInteger();
 
         final ClusterStateTaskListener listener = new ClusterStateTaskListener() {
@@ -883,8 +880,6 @@ public class MasterServiceTests extends OpenSearchTestCase {
                     succeededTask1.incrementAndGet();
                 } else if (source.equals(task2)) {
                     succeededTask2.incrementAndGet();
-                } else if (source.equals(task3)) {
-                    succeededTask3.incrementAndGet();
                 }
                 latch.countDown();
             }
@@ -960,7 +955,7 @@ public class MasterServiceTests extends OpenSearchTestCase {
         assertEquals(numberOfTask1, throttledTask1.get() + succeededTask1.get());
         assertEquals(numberOfTask2, succeededTask2.get());
         assertEquals(0, throttledTask2.get());
-        assertEquals(numberOfTask3, throttledTask3.get() + timedOutTask3.get() + succeededTask3.get());
+        assertEquals(numberOfTask3, throttledTask3.get() + timedOutTask3.get());
         masterService.close();
     }
 
@@ -1085,12 +1080,12 @@ public class MasterServiceTests extends OpenSearchTestCase {
                 final AtomicReference<ClusterState> clusterStateRef = new AtomicReference<>(initialClusterState);
                 clusterManagerService.setClusterStatePublisher((event, publishListener, ackListener) -> {
                     if (event.source().contains("test5")) {
-                        timeDiffInMillis += ClusterManagerService.CLUSTER_MANAGER_SERVICE_SLOW_TASK_LOGGING_THRESHOLD_SETTING.get(
+                        relativeTimeInMillis += ClusterManagerService.CLUSTER_MANAGER_SERVICE_SLOW_TASK_LOGGING_THRESHOLD_SETTING.get(
                             Settings.EMPTY
                         ).millis() + randomLongBetween(1, 1000000);
                     }
                     if (event.source().contains("test6")) {
-                        timeDiffInMillis += ClusterManagerService.CLUSTER_MANAGER_SERVICE_SLOW_TASK_LOGGING_THRESHOLD_SETTING.get(
+                        relativeTimeInMillis += ClusterManagerService.CLUSTER_MANAGER_SERVICE_SLOW_TASK_LOGGING_THRESHOLD_SETTING.get(
                             Settings.EMPTY
                         ).millis() + randomLongBetween(1, 1000000);
                         throw new OpenSearchException("simulated error during slow publication which should trigger logging");
@@ -1106,7 +1101,7 @@ public class MasterServiceTests extends OpenSearchTestCase {
                 clusterManagerService.submitStateUpdateTask("test1", new ClusterStateUpdateTask() {
                     @Override
                     public ClusterState execute(ClusterState currentState) {
-                        timeDiffInMillis += randomLongBetween(
+                        relativeTimeInMillis += randomLongBetween(
                             0L,
                             ClusterManagerService.CLUSTER_MANAGER_SERVICE_SLOW_TASK_LOGGING_THRESHOLD_SETTING.get(Settings.EMPTY).millis()
                         );
@@ -1129,7 +1124,7 @@ public class MasterServiceTests extends OpenSearchTestCase {
                 clusterManagerService.submitStateUpdateTask("test2", new ClusterStateUpdateTask() {
                     @Override
                     public ClusterState execute(ClusterState currentState) {
-                        timeDiffInMillis += ClusterManagerService.CLUSTER_MANAGER_SERVICE_SLOW_TASK_LOGGING_THRESHOLD_SETTING.get(
+                        relativeTimeInMillis += ClusterManagerService.CLUSTER_MANAGER_SERVICE_SLOW_TASK_LOGGING_THRESHOLD_SETTING.get(
                             Settings.EMPTY
                         ).millis() + randomLongBetween(1, 1000000);
                         throw new IllegalArgumentException("Testing handling of exceptions in the cluster state task");
@@ -1148,7 +1143,7 @@ public class MasterServiceTests extends OpenSearchTestCase {
                 clusterManagerService.submitStateUpdateTask("test3", new ClusterStateUpdateTask() {
                     @Override
                     public ClusterState execute(ClusterState currentState) {
-                        timeDiffInMillis += ClusterManagerService.CLUSTER_MANAGER_SERVICE_SLOW_TASK_LOGGING_THRESHOLD_SETTING.get(
+                        relativeTimeInMillis += ClusterManagerService.CLUSTER_MANAGER_SERVICE_SLOW_TASK_LOGGING_THRESHOLD_SETTING.get(
                             Settings.EMPTY
                         ).millis() + randomLongBetween(1, 1000000);
                         return ClusterState.builder(currentState).incrementVersion().build();
@@ -1167,7 +1162,7 @@ public class MasterServiceTests extends OpenSearchTestCase {
                 clusterManagerService.submitStateUpdateTask("test4", new ClusterStateUpdateTask() {
                     @Override
                     public ClusterState execute(ClusterState currentState) {
-                        timeDiffInMillis += ClusterManagerService.CLUSTER_MANAGER_SERVICE_SLOW_TASK_LOGGING_THRESHOLD_SETTING.get(
+                        relativeTimeInMillis += ClusterManagerService.CLUSTER_MANAGER_SERVICE_SLOW_TASK_LOGGING_THRESHOLD_SETTING.get(
                             Settings.EMPTY
                         ).millis() + randomLongBetween(1, 1000000);
                         return currentState;
@@ -1381,76 +1376,6 @@ public class MasterServiceTests extends OpenSearchTestCase {
         Thread.currentThread().setName("test not cluster manager update thread");
         assertThat(MasterService.assertNotClusterManagerUpdateThread("test"), is(Boolean.TRUE));
         assertThrows(AssertionError.class, () -> MasterService.assertClusterManagerUpdateThread());
-    }
-
-    @Timeout(millis = 5_000)
-    public void testTaskTimeout() throws InterruptedException {
-        try (ClusterManagerService clusterManagerService = createClusterManagerService(true)) {
-            final AtomicInteger failureCount = new AtomicInteger();
-            final AtomicInteger successCount = new AtomicInteger();
-            final CountDownLatch taskStartLatch = new CountDownLatch(1);
-            final CountDownLatch blockingTaskLatch = new CountDownLatch(1);
-            final CountDownLatch timeoutLatch = new CountDownLatch(1);
-            final ClusterStateTaskListener blockingListener = new ClusterStateTaskListener() {
-                @Override
-                public void onFailure(String source, Exception e) {
-                    fail("Unexpected failure");
-                }
-
-                @Override
-                public void clusterStateProcessed(String source, ClusterState oldState, ClusterState newState) {
-                    successCount.incrementAndGet();
-                    taskStartLatch.countDown();
-                    try {
-                        blockingTaskLatch.await();
-                    } catch (InterruptedException e) {
-                        fail("Interrupted");
-                    }
-                }
-            };
-            final ClusterStateTaskListener timeoutListener = new ClusterStateTaskListener() {
-                @Override
-                public void onFailure(String source, Exception e) {
-                    assertEquals("timeout", source);
-                    failureCount.incrementAndGet();
-                    timeoutLatch.countDown();
-                }
-
-                @Override
-                public void clusterStateProcessed(String source, ClusterState oldState, ClusterState newState) {
-                    fail("Unexpected success");
-                }
-            };
-
-            final ClusterStateTaskExecutor<Object> executor = (currentState, tasks) -> ClusterStateTaskExecutor.ClusterTasksResult.builder()
-                .successes(tasks)
-                .build(currentState);
-
-            // start a task and wait for it to start and block on the clusterStateProcessed callback
-            clusterManagerService.submitStateUpdateTask(
-                "success",
-                new Object(),
-                ClusterStateTaskConfig.build(randomFrom(Priority.values())),
-                executor,
-                blockingListener
-            );
-            taskStartLatch.await();
-
-            // start a second task that is guaranteed to timeout as the first task is still running
-            clusterManagerService.submitStateUpdateTask(
-                "timeout",
-                new Object(),
-                ClusterStateTaskConfig.build(randomFrom(Priority.values()), TimeValue.timeValueMillis(1L)),
-                executor,
-                timeoutListener
-            );
-
-            // wait for the timeout to happen, then unblock and assert one success and one failure
-            timeoutLatch.await();
-            blockingTaskLatch.countDown();
-            assertEquals(1, failureCount.get());
-            assertEquals(1, successCount.get());
-        }
     }
 
     /**

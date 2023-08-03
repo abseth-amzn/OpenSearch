@@ -15,7 +15,6 @@ import org.opensearch.index.store.remote.utils.cache.stats.CacheStats;
 
 import java.util.Objects;
 import java.util.function.BiFunction;
-import java.util.function.Predicate;
 
 /**
  * Segmented {@link LRUCache} to offer concurrent access with less contention.
@@ -135,15 +134,6 @@ public class SegmentedCache<K, V> implements RefCountedCache<K, V> {
         long sum = 0L;
         for (RefCountedCache<K, V> cache : table) {
             sum += cache.prune();
-        }
-        return sum;
-    }
-
-    @Override
-    public long prune(Predicate<K> keyPredicate) {
-        long sum = 0L;
-        for (RefCountedCache<K, V> cache : table) {
-            sum += cache.prune(keyPredicate);
         }
         return sum;
     }

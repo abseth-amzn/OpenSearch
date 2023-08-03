@@ -8,57 +8,32 @@
 
 package org.opensearch.test;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.common.SuppressForbidden;
-import org.opensearch.common.util.concurrent.ConcurrentCollections;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.util.Set;
 
 /**
  * Helper class that wraps the lifecycle of setting and finally clearing of
- * a {@link org.opensearch.common.util.FeatureFlags} string.
+ * a {@link org.opensearch.common.util.FeatureFlags} string in an {@link AutoCloseable}.
  */
-public class FeatureFlagSetter {
+public class FeatureFlagSetter implements AutoCloseable {
 
-    private static FeatureFlagSetter INSTANCE = null;
+    private final String flag;
 
-    private static synchronized FeatureFlagSetter getInstance() {
-        if (INSTANCE == null) {
-            INSTANCE = new FeatureFlagSetter();
-        }
-        return INSTANCE;
+    private FeatureFlagSetter(String flag) {
+        this.flag = flag;
     }
-
-    public static synchronized void set(String flag) {
-        getInstance().setFlag(flag);
-    }
-
-    public static synchronized void clear() {
-        if (INSTANCE != null) {
-            INSTANCE.clearAll();
-            INSTANCE = null;
-        }
-    }
-
-    private static final Logger LOGGER = LogManager.getLogger(FeatureFlagSetter.class);
-    private final Set<String> flags = ConcurrentCollections.newConcurrentSet();
 
     @SuppressForbidden(reason = "Enables setting of feature flags")
-    private void setFlag(String flag) {
-        flags.add(flag);
+    public static final FeatureFlagSetter set(String flag) {
         AccessController.doPrivileged((PrivilegedAction<String>) () -> System.setProperty(flag, "true"));
-        LOGGER.info("set feature_flag={}", flag);
+        return new FeatureFlagSetter(flag);
     }
 
-    @SuppressForbidden(reason = "Clears the set feature flags")
-    private void clearAll() {
-        for (String flag : flags) {
-            AccessController.doPrivileged((PrivilegedAction<String>) () -> System.clearProperty(flag));
-        }
-        LOGGER.info("unset feature_flags={}", flags);
-        flags.clear();
+    @SuppressForbidden(reason = "Clears the set feature flag on close")
+    @Override
+    public void close() throws Exception {
+        AccessController.doPrivileged((PrivilegedAction<String>) () -> System.clearProperty(this.flag));
     }
 }

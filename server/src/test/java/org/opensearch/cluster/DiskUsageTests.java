@@ -41,8 +41,9 @@ import org.opensearch.cluster.routing.RecoverySource.PeerRecoverySource;
 import org.opensearch.cluster.routing.ShardRouting;
 import org.opensearch.cluster.routing.ShardRoutingHelper;
 import org.opensearch.cluster.routing.UnassignedInfo;
-import org.opensearch.core.index.Index;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.common.collect.ImmutableOpenMap;
+import org.opensearch.index.Index;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.index.shard.ShardPath;
 import org.opensearch.index.store.StoreStats;
 import org.opensearch.monitor.fs.FsInfo;
@@ -52,7 +53,6 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
@@ -137,8 +137,9 @@ public class DiskUsageTests extends OpenSearchTestCase {
         ShardStats[] stats = new ShardStats[] {
             new ShardStats(test_0, new ShardPath(false, test0Path, test0Path, test_0.shardId()), commonStats0, null, null, null),
             new ShardStats(test_1, new ShardPath(false, test1Path, test1Path, test_1.shardId()), commonStats1, null, null, null) };
-        final Map<String, Long> shardSizes = new HashMap<>();
-        final Map<ShardRouting, String> routingToPath = new HashMap<>();
+        ImmutableOpenMap.Builder<String, Long> shardSizes = ImmutableOpenMap.builder();
+        ImmutableOpenMap.Builder<ShardRouting, String> routingToPath = ImmutableOpenMap.builder();
+        ClusterState state = ClusterState.builder(new ClusterName("blarg")).version(0).build();
         InternalClusterInfoService.buildShardLevelInfo(logger, stats, shardSizes, routingToPath, new HashMap<>());
         assertEquals(2, shardSizes.size());
         assertTrue(shardSizes.containsKey(ClusterInfo.shardIdentifierFromRouting(test_0)));
@@ -154,8 +155,8 @@ public class DiskUsageTests extends OpenSearchTestCase {
     }
 
     public void testFillDiskUsage() {
-        final Map<String, DiskUsage> newLeastAvaiableUsages = new HashMap<>();
-        final Map<String, DiskUsage> newMostAvaiableUsages = new HashMap<>();
+        ImmutableOpenMap.Builder<String, DiskUsage> newLeastAvaiableUsages = ImmutableOpenMap.builder();
+        ImmutableOpenMap.Builder<String, DiskUsage> newMostAvaiableUsages = ImmutableOpenMap.builder();
         FsInfo.Path[] node1FSInfo = new FsInfo.Path[] {
             new FsInfo.Path("/middle", "/dev/sda", 100, 90, 80),
             new FsInfo.Path("/least", "/dev/sdb", 200, 190, 70),
@@ -175,8 +176,6 @@ public class DiskUsageTests extends OpenSearchTestCase {
                 null,
                 null,
                 new FsInfo(0, null, node1FSInfo),
-                null,
-                null,
                 null,
                 null,
                 null,
@@ -214,8 +213,6 @@ public class DiskUsageTests extends OpenSearchTestCase {
                 null,
                 null,
                 null,
-                null,
-                null,
                 null
             ),
             new NodeStats(
@@ -227,8 +224,6 @@ public class DiskUsageTests extends OpenSearchTestCase {
                 null,
                 null,
                 new FsInfo(0, null, node3FSInfo),
-                null,
-                null,
                 null,
                 null,
                 null,
@@ -263,8 +258,8 @@ public class DiskUsageTests extends OpenSearchTestCase {
     }
 
     public void testFillDiskUsageSomeInvalidValues() {
-        final Map<String, DiskUsage> newLeastAvailableUsages = new HashMap<>();
-        final Map<String, DiskUsage> newMostAvailableUsages = new HashMap<>();
+        ImmutableOpenMap.Builder<String, DiskUsage> newLeastAvailableUsages = ImmutableOpenMap.builder();
+        ImmutableOpenMap.Builder<String, DiskUsage> newMostAvailableUsages = ImmutableOpenMap.builder();
         FsInfo.Path[] node1FSInfo = new FsInfo.Path[] {
             new FsInfo.Path("/middle", "/dev/sda", 100, 90, 80),
             new FsInfo.Path("/least", "/dev/sdb", -1, -1, -1),
@@ -284,8 +279,6 @@ public class DiskUsageTests extends OpenSearchTestCase {
                 null,
                 null,
                 new FsInfo(0, null, node1FSInfo),
-                null,
-                null,
                 null,
                 null,
                 null,
@@ -323,8 +316,6 @@ public class DiskUsageTests extends OpenSearchTestCase {
                 null,
                 null,
                 null,
-                null,
-                null,
                 null
             ),
             new NodeStats(
@@ -336,8 +327,6 @@ public class DiskUsageTests extends OpenSearchTestCase {
                 null,
                 null,
                 new FsInfo(0, null, node3FSInfo),
-                null,
-                null,
                 null,
                 null,
                 null,

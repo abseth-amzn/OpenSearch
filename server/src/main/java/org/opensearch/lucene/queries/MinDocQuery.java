@@ -86,8 +86,7 @@ public final class MinDocQuery extends Query {
     }
 
     @Override
-    public Query rewrite(IndexSearcher searcher) throws IOException {
-        final IndexReader reader = searcher.getIndexReader();
+    public Query rewrite(IndexReader reader) throws IOException {
         if (Objects.equals(reader.getContext().id(), readerId) == false) {
             return new MinDocQuery(minDoc, reader.getContext().id());
         }

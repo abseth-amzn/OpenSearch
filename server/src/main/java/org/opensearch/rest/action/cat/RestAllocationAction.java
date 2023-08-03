@@ -32,6 +32,7 @@
 
 package org.opensearch.rest.action.cat;
 
+import com.carrotsearch.hppc.ObjectIntScatterMap;
 import org.opensearch.action.admin.cluster.node.stats.NodeStats;
 import org.opensearch.action.admin.cluster.node.stats.NodesStatsRequest;
 import org.opensearch.action.admin.cluster.node.stats.NodesStatsResponse;
@@ -41,18 +42,16 @@ import org.opensearch.action.admin.indices.stats.CommonStatsFlags;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.routing.ShardRouting;
+import org.opensearch.common.Strings;
 import org.opensearch.common.Table;
 import org.opensearch.common.logging.DeprecationLogger;
-import org.opensearch.core.common.unit.ByteSizeValue;
-import org.opensearch.core.common.Strings;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestResponse;
 import org.opensearch.rest.action.RestActionListener;
 import org.opensearch.rest.action.RestResponseListener;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
@@ -132,7 +131,7 @@ public class RestAllocationAction extends AbstractCatAction {
     }
 
     private Table buildTable(RestRequest request, final ClusterStateResponse state, final NodesStatsResponse stats) {
-        final Map<String, Integer> allocs = new HashMap<>();
+        final ObjectIntScatterMap<String> allocs = new ObjectIntScatterMap<>();
 
         for (ShardRouting shard : state.getState().routingTable().allShards()) {
             String nodeId = "UNASSIGNED";
@@ -141,7 +140,7 @@ public class RestAllocationAction extends AbstractCatAction {
                 nodeId = shard.currentNodeId();
             }
 
-            allocs.merge(nodeId, 1, Integer::sum);
+            allocs.addTo(nodeId, 1);
         }
 
         Table table = getTableWithHeader(request);

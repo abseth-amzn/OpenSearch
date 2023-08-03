@@ -8,6 +8,8 @@
 
 package org.opensearch.cluster.routing.allocation;
 
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.opensearch.Version;
 import org.opensearch.cluster.ClusterInfo;
 import org.opensearch.cluster.ClusterModule;
@@ -29,15 +31,16 @@ import org.opensearch.cluster.routing.allocation.allocator.ShardsAllocator;
 import org.opensearch.cluster.routing.allocation.decider.AllocationDecider;
 import org.opensearch.cluster.routing.allocation.decider.AllocationDeciders;
 import org.opensearch.common.SuppressForbidden;
+import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.util.FeatureFlags;
 import org.opensearch.index.IndexModule;
 import org.opensearch.test.gateway.TestGatewayAllocator;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static org.opensearch.cluster.routing.ShardRoutingState.INITIALIZING;
@@ -64,6 +67,16 @@ public abstract class RemoteShardsBalancerBaseTestCase extends OpenSearchAllocat
     private static final int MAX_REROUTE_ITERATIONS = 1000;
 
     protected ClusterSettings EMPTY_CLUSTER_SETTINGS = new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
+
+    @BeforeClass
+    public static void setup() {
+        System.setProperty(FeatureFlags.SEARCHABLE_SNAPSHOT, "true");
+    }
+
+    @AfterClass
+    public static void teardown() {
+        System.setProperty(FeatureFlags.SEARCHABLE_SNAPSHOT, "false");
+    }
 
     public String getNodeId(int id, boolean isRemote, String prefix) {
         if (isRemote) {
@@ -235,11 +248,11 @@ public abstract class RemoteShardsBalancerBaseTestCase extends OpenSearchAllocat
      */
     public static class DevNullClusterInfo extends ClusterInfo {
         public DevNullClusterInfo(
-            final Map<String, DiskUsage> leastAvailableSpaceUsage,
-            final Map<String, DiskUsage> mostAvailableSpaceUsage,
-            final Map<String, Long> shardSizes
+            ImmutableOpenMap<String, DiskUsage> leastAvailableSpaceUsage,
+            ImmutableOpenMap<String, DiskUsage> mostAvailableSpaceUsage,
+            ImmutableOpenMap<String, Long> shardSizes
         ) {
-            super(leastAvailableSpaceUsage, mostAvailableSpaceUsage, shardSizes, null, Map.of(), Map.of());
+            super(leastAvailableSpaceUsage, mostAvailableSpaceUsage, shardSizes, null, ImmutableOpenMap.of());
         }
 
         @Override

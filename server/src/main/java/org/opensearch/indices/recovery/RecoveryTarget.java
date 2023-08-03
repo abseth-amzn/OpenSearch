@@ -35,13 +35,13 @@ package org.opensearch.indices.recovery;
 import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.index.IndexFormatTooNewException;
 import org.apache.lucene.index.IndexFormatTooOldException;
-import org.opensearch.core.Assertions;
+import org.opensearch.Assertions;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.indices.flush.FlushRequest;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.UUIDs;
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.common.util.CancellableThreads;
 import org.opensearch.index.engine.Engine;
@@ -107,6 +107,11 @@ public class RecoveryTarget extends ReplicationTarget implements RecoveryTargetH
      */
     public RecoveryTarget retryCopy() {
         return new RecoveryTarget(indexShard, sourceNode, listener);
+    }
+
+    public IndexShard indexShard() {
+        ensureRefCount();
+        return indexShard;
     }
 
     public String source() {

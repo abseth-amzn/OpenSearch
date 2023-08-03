@@ -32,9 +32,9 @@
 
 package org.opensearch.common.compress;
 
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.Assertions;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.core.Assertions;
 import org.opensearch.common.lease.Releasable;
 
 import java.io.BufferedInputStream;
@@ -157,9 +157,16 @@ public class DeflateCompressor implements Compressor {
      * @return             decompressing stream
      */
     public static InputStream inputStream(InputStream in, boolean threadLocal) throws IOException {
-        final byte[] header = in.readNBytes(HEADER.length);
-
-        if (Arrays.equals(header, HEADER) == false) {
+        final byte[] headerBytes = new byte[HEADER.length];
+        int len = 0;
+        while (len < headerBytes.length) {
+            final int read = in.read(headerBytes, len, headerBytes.length - len);
+            if (read == -1) {
+                break;
+            }
+            len += read;
+        }
+        if (len != HEADER.length || Arrays.equals(headerBytes, HEADER) == false) {
             throw new IllegalArgumentException("Input stream is not compressed with DEFLATE!");
         }
 
@@ -245,11 +252,9 @@ public class DeflateCompressor implements Compressor {
         } finally {
             inflater.reset();
         }
-        try {
-            return buffer.copyBytes();
-        } finally {
-            buffer.reset();
-        }
+        final BytesReference res = buffer.copyBytes();
+        buffer.reset();
+        return res;
     }
 
     // Reusable Deflater reference. Note: This is a separate instance from the one used for the compressing stream wrapper because we
@@ -266,10 +271,8 @@ public class DeflateCompressor implements Compressor {
         } finally {
             deflater.reset();
         }
-        try {
-            return buffer.copyBytes();
-        } finally {
-            buffer.reset();
-        }
+        final BytesReference res = buffer.copyBytes();
+        buffer.reset();
+        return res;
     }
 }

@@ -31,6 +31,7 @@
 
 package org.opensearch.cluster.metadata;
 
+import com.carrotsearch.hppc.cursors.ObjectCursor;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.routing.allocation.RoutingAllocation;
 import org.opensearch.cluster.routing.allocation.decider.Decision;
@@ -143,8 +144,8 @@ public final class AutoExpandReplicas {
     private OptionalInt getDesiredNumberOfReplicas(IndexMetadata indexMetadata, RoutingAllocation allocation) {
         if (enabled) {
             int numMatchingDataNodes = 0;
-            for (final DiscoveryNode cursor : allocation.nodes().getDataNodes().values()) {
-                Decision decision = allocation.deciders().shouldAutoExpandToNode(indexMetadata, cursor, allocation);
+            for (ObjectCursor<DiscoveryNode> cursor : allocation.nodes().getDataNodes().values()) {
+                Decision decision = allocation.deciders().shouldAutoExpandToNode(indexMetadata, cursor.value, allocation);
                 if (decision.type() != Decision.Type.NO) {
                     numMatchingDataNodes++;
                 }

@@ -30,15 +30,11 @@
 apply plugin: 'opensearch.build'
 apply plugin: 'opensearch.publish'
 
-java {
-  targetCompatibility = JavaVersion.VERSION_11
-  sourceCompatibility = JavaVersion.VERSION_11
-}
+targetCompatibility = JavaVersion.VERSION_11
+sourceCompatibility = JavaVersion.VERSION_11
 
-base {
-  group = 'org.opensearch.client'
-  archivesBaseName = 'opensearch-rest-client-sniffer'
-}
+group = 'org.opensearch.client'
+archivesBaseName = 'opensearch-rest-client-sniffer'
 
 dependencies {
   api project(":client:rest")

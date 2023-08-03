@@ -32,16 +32,15 @@
 
 package org.opensearch.search.aggregations.metrics;
 
-import org.opensearch.core.common.breaker.CircuitBreaker;
-import org.opensearch.core.common.breaker.CircuitBreakingException;
-import org.opensearch.core.common.breaker.NoopCircuitBreaker;
+import com.carrotsearch.hppc.BitMixer;
+import com.carrotsearch.hppc.IntHashSet;
+import org.opensearch.common.breaker.CircuitBreaker;
+import org.opensearch.common.breaker.CircuitBreakingException;
+import org.opensearch.common.breaker.NoopCircuitBreaker;
 import org.opensearch.common.util.BigArrays;
-import org.opensearch.common.util.BitMixer;
-import org.opensearch.core.indices.breaker.CircuitBreakerService;
+import org.opensearch.indices.breaker.CircuitBreakerService;
 import org.opensearch.test.OpenSearchTestCase;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.opensearch.search.aggregations.metrics.AbstractHyperLogLog.MAX_PRECISION;
@@ -81,7 +80,7 @@ public class HyperLogLogPlusPlusTests extends OpenSearchTestCase {
         final int numValues = randomIntBetween(1, 100000);
         final int maxValue = randomIntBetween(1, randomBoolean() ? 1000 : 100000);
         final int p = randomIntBetween(14, MAX_PRECISION);
-        final Set<Integer> set = new HashSet<>();
+        IntHashSet set = new IntHashSet();
         HyperLogLogPlusPlus e = new HyperLogLogPlusPlus(p, BigArrays.NON_RECYCLING_INSTANCE, 1);
         for (int i = 0; i < numValues; ++i) {
             final int n = randomInt(maxValue);

@@ -43,10 +43,9 @@ public class SearchBackpressureSettings {
      * Defines the search backpressure mode. It can be either "disabled", "monitor_only" or "enforced".
      */
     private volatile SearchBackpressureMode mode;
-    public static final Setting<SearchBackpressureMode> SETTING_MODE = new Setting<>(
+    public static final Setting<String> SETTING_MODE = Setting.simpleString(
         "search_backpressure.mode",
         Defaults.MODE,
-        SearchBackpressureMode::fromName,
         Setting.Property.Dynamic,
         Setting.Property.NodeScope
     );
@@ -114,8 +113,8 @@ public class SearchBackpressureSettings {
 
         interval = new TimeValue(SETTING_INTERVAL_MILLIS.get(settings));
 
-        mode = SETTING_MODE.get(settings);
-        clusterSettings.addSettingsUpdateConsumer(SETTING_MODE, this::setMode);
+        mode = SearchBackpressureMode.fromName(SETTING_MODE.get(settings));
+        clusterSettings.addSettingsUpdateConsumer(SETTING_MODE, s -> this.setMode(SearchBackpressureMode.fromName(s)));
         clusterSettings.addSettingsUpdateConsumer(SETTING_CANCELLATION_RATIO, searchShardTaskSettings::setCancellationRatio);
         clusterSettings.addSettingsUpdateConsumer(SETTING_CANCELLATION_RATE, searchShardTaskSettings::setCancellationRate);
         clusterSettings.addSettingsUpdateConsumer(SETTING_CANCELLATION_BURST, searchShardTaskSettings::setCancellationBurst);

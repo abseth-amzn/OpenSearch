@@ -41,11 +41,12 @@ import org.opensearch.cluster.metadata.DataStream;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.metadata.MetadataDeleteIndexService;
+import org.opensearch.common.Strings;
+import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.collect.Tuple;
-import org.opensearch.core.common.io.stream.Writeable;
+import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.common.Strings;
-import org.opensearch.core.index.Index;
+import org.opensearch.index.Index;
 import org.opensearch.snapshots.Snapshot;
 import org.opensearch.snapshots.SnapshotId;
 import org.opensearch.snapshots.SnapshotInProgressException;
@@ -55,7 +56,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -168,10 +168,10 @@ public class DeleteDataStreamRequestTests extends AbstractWireSerializingTestCas
             Collections.singletonList(dataStreamName),
             0,
             1,
-            Map.of(),
+            ImmutableOpenMap.of(),
             null,
             null,
-            false
+            null
         );
     }
 

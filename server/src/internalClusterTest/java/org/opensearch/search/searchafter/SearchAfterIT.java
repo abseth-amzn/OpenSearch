@@ -382,22 +382,24 @@ public class SearchAfterIT extends OpenSearchIntegTestCase {
         ensureGreen();
     }
 
-    // Convert Integer, Short, Byte and Boolean to Int in order to match the conversion done
+    // Convert Integer, Short, Byte and Boolean to Long in order to match the conversion done
     // by the internal hits when populating the sort values.
     private List<Object> convertSortValues(List<Object> sortValues) {
         List<Object> converted = new ArrayList<>();
         for (int i = 0; i < sortValues.size(); i++) {
             Object from = sortValues.get(i);
-            if (from instanceof Short) {
-                converted.add(((Short) from).intValue());
+            if (from instanceof Integer) {
+                converted.add(((Integer) from).longValue());
+            } else if (from instanceof Short) {
+                converted.add(((Short) from).longValue());
             } else if (from instanceof Byte) {
-                converted.add(((Byte) from).intValue());
+                converted.add(((Byte) from).longValue());
             } else if (from instanceof Boolean) {
                 boolean b = (boolean) from;
                 if (b) {
-                    converted.add(1);
+                    converted.add(1L);
                 } else {
-                    converted.add(0);
+                    converted.add(0L);
                 }
             } else {
                 converted.add(from);

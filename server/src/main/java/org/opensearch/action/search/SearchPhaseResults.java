@@ -42,7 +42,7 @@ import java.util.stream.Stream;
  *
  * @opensearch.internal
  */
-public abstract class SearchPhaseResults<Result extends SearchPhaseResult> {
+abstract class SearchPhaseResults<Result extends SearchPhaseResult> {
     private final int numShards;
 
     SearchPhaseResults(int numShards) {
@@ -75,13 +75,7 @@ public abstract class SearchPhaseResults<Result extends SearchPhaseResult> {
 
     void consumeShardFailure(int shardIndex) {}
 
-    /**
-     * Returns an {@link AtomicArray} of {@link Result}, which are nothing but the SearchPhaseResults
-     * for shards. The {@link Result} are of type {@link SearchPhaseResult}
-     *
-     * @return an {@link AtomicArray} of {@link Result}
-     */
-    public AtomicArray<Result> getAtomicArray() {
+    AtomicArray<Result> getAtomicArray() {
         throw new UnsupportedOperationException();
     }
 

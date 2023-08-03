@@ -40,14 +40,13 @@ import org.opensearch.ResourceNotFoundException;
 import org.opensearch.action.OriginalIndices;
 import org.opensearch.action.search.SearchPhaseExecutionException;
 import org.opensearch.action.search.ShardSearchFailure;
-import org.opensearch.core.common.ParsingException;
-import org.opensearch.core.common.bytes.BytesReference;
-import org.opensearch.core.common.transport.TransportAddress;
-import org.opensearch.core.rest.RestStatus;
+import org.opensearch.common.ParsingException;
+import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.search.SearchShardTarget;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.rest.FakeRestRequest;
@@ -131,7 +130,7 @@ public class BytesRestResponseTests extends OpenSearchTestCase {
         String text = response.content().utf8ToString();
         assertThat(text, containsString("\"type\":\"unknown_exception\",\"reason\":\"an error occurred reading data\""));
         assertThat(text, containsString("{\"type\":\"file_not_found_exception\""));
-        assertThat(text, containsString("\"stack_trace\":\"OpenSearchException[an error occurred reading data]"));
+        assertThat(text, containsString("\"stack_trace\":\"[an error occurred reading data]"));
     }
 
     public void testGuessRootCause() throws IOException {

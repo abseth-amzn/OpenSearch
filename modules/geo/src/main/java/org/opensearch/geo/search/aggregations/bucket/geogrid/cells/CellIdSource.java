@@ -69,11 +69,6 @@ public class CellIdSource extends ValuesSource.Numeric {
     }
 
     @Override
-    public boolean isBigInteger() {
-        return false;
-    }
-
-    @Override
     public SortedNumericDocValues longValues(LeafReaderContext ctx) {
         if (geoBoundingBox.isUnbounded()) {
             return new UnboundedCellValues(valuesSource.geoPointValues(ctx), precision, encoder);

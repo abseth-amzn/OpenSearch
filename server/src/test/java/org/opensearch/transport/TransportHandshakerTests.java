@@ -35,9 +35,8 @@ import org.opensearch.Version;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.core.transport.TransportResponse;
 import org.opensearch.tasks.TaskId;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.TestThreadPool;
@@ -125,7 +124,7 @@ public class TransportHandshakerTests extends OpenSearchTestCase {
         TaskId.EMPTY_TASK_ID.writeTo(lengthCheckingHandshake);
         TaskId.EMPTY_TASK_ID.writeTo(futureHandshake);
         try (BytesStreamOutput internalMessage = new BytesStreamOutput()) {
-            internalMessage.writeVersion(Version.CURRENT);
+            Version.writeVersion(Version.CURRENT, internalMessage);
             lengthCheckingHandshake.writeBytesReference(internalMessage.bytes());
             internalMessage.write(new byte[1024]);
             futureHandshake.writeBytesReference(internalMessage.bytes());

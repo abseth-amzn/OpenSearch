@@ -41,15 +41,14 @@ import org.apache.lucene.util.Constants;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.core.ParseField;
 import org.opensearch.common.Strings;
-import org.opensearch.core.common.bytes.BytesArray;
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.bytes.BytesArray;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.geo.GeoPoint;
 import org.opensearch.common.io.PathUtils;
-import org.opensearch.core.common.text.Text;
+import org.opensearch.common.text.Text;
 import org.opensearch.common.unit.DistanceUnit;
 import org.opensearch.common.util.CollectionUtils;
 import org.opensearch.core.xcontent.DeprecationHandler;
-import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.NamedObjectNotFoundException;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
@@ -256,10 +255,6 @@ public abstract class BaseXContentTestCase extends OpenSearchTestCase {
         assertResult("{'long':null}", () -> builder().startObject().field("long", (Long) null).endObject());
         assertResult("{'long':42}", () -> builder().startObject().field("long", Long.valueOf(42L)).endObject());
         assertResult("{'long':9223372036854775807}", () -> builder().startObject().field("long", 9_223_372_036_854_775_807L).endObject());
-        assertResult(
-            "{'unsigned_long':18446744073709551615}",
-            () -> builder().startObject().field("unsigned_long", new BigDecimal("18446744073709551615")).endObject()
-        );
         assertResult("{'long':[1,3,5,7,11]}", () -> builder().startObject().array("long", 1L, 3L, 5L, 7L, 11L).endObject());
         assertResult("{'long':null}", () -> builder().startObject().array("long", (long[]) null).endObject());
         assertResult("{'long':[]}", () -> builder().startObject().array("long", new long[] {}).endObject());
@@ -866,7 +861,7 @@ public abstract class BaseXContentTestCase extends OpenSearchTestCase {
             generator.writeEndObject();
         }
         byte[] data = os.toByteArray();
-        assertEquals(xcontentType(), MediaTypeRegistry.xContent(data));
+        assertEquals(xcontentType(), XContentFactory.xContentType(data));
     }
 
     public void testMissingEndObject() throws IOException {

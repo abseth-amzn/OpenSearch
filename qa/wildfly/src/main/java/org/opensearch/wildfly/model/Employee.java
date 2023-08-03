@@ -34,8 +34,12 @@ package org.opensearch.wildfly.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import javax.ws.rs.Consumes;
+import javax.ws.rs.core.MediaType;
+
 import java.util.List;
 
+@Consumes(MediaType.APPLICATION_JSON)
 public class Employee {
 
     @JsonProperty(value = "first_name")

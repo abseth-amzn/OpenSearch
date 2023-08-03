@@ -67,48 +67,48 @@ import org.opensearch.cluster.ClusterModule;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.CheckedRunnable;
-import org.opensearch.common.Numbers;
 import org.opensearch.common.SuppressForbidden;
-import org.opensearch.core.common.bytes.BytesArray;
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.bytes.BytesArray;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.io.PathUtils;
 import org.opensearch.common.io.PathUtilsForTesting;
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.core.common.io.stream.NamedWriteable;
-import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
-import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.Writeable;
-import org.opensearch.core.index.Index;
+import org.opensearch.common.io.stream.NamedWriteable;
+import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
+import org.opensearch.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.joda.JodaDeprecationPatterns;
 import org.opensearch.common.logging.DeprecatedMessage;
 import org.opensearch.common.logging.HeaderWarning;
 import org.opensearch.common.logging.HeaderWarningAppender;
+import org.opensearch.common.logging.LogConfigurator;
 import org.opensearch.common.logging.Loggers;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.time.DateUtils;
 import org.opensearch.common.time.FormatNames;
-import org.opensearch.core.common.transport.TransportAddress;
+import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.common.util.MockBigArrays;
 import org.opensearch.common.util.MockPageCacheRecycler;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.util.set.Sets;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
+import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContent;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.core.xcontent.XContentParser.Token;
 import org.opensearch.env.Environment;
 import org.opensearch.env.NodeEnvironment;
 import org.opensearch.env.TestEnvironment;
-import org.opensearch.index.IndexModule;
+import org.opensearch.index.Index;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.analysis.AnalysisRegistry;
 import org.opensearch.index.analysis.AnalyzerScope;
@@ -117,7 +117,6 @@ import org.opensearch.index.analysis.IndexAnalyzers;
 import org.opensearch.index.analysis.NamedAnalyzer;
 import org.opensearch.index.analysis.TokenFilterFactory;
 import org.opensearch.index.analysis.TokenizerFactory;
-import org.opensearch.index.store.remote.filecache.FileCache;
 import org.opensearch.indices.analysis.AnalysisModule;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.plugins.AnalysisPlugin;
@@ -129,7 +128,6 @@ import org.opensearch.search.MockSearchService;
 import org.opensearch.test.junit.listeners.LoggingListener;
 import org.opensearch.test.junit.listeners.ReproduceInfoPrinter;
 import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.transport.TransportService;
 import org.opensearch.transport.nio.MockNioTransportPlugin;
 import org.joda.time.DateTimeZone;
 import org.junit.After;
@@ -221,12 +219,6 @@ public abstract class OpenSearchTestCase extends LuceneTestCase {
         portGenerator.set(0);
     }
 
-    @Override
-    public void tearDown() throws Exception {
-        FeatureFlagSetter.clear();
-        super.tearDown();
-    }
-
     // Allows distinguishing between parallel test processes
     public static final String TEST_WORKER_VM_ID;
 
@@ -239,6 +231,7 @@ public abstract class OpenSearchTestCase extends LuceneTestCase {
     static {
         TEST_WORKER_VM_ID = System.getProperty(TEST_WORKER_SYS_PROPERTY, DEFAULT_TEST_WORKER_ID);
         setTestSysProps();
+        LogConfigurator.loadLog4jPlugins();
 
         String leakLoggerName = "io.netty.util.ResourceLeakDetector";
         Logger leakLogger = LogManager.getLogger(leakLoggerName);
@@ -264,7 +257,6 @@ public abstract class OpenSearchTestCase extends LuceneTestCase {
         }));
 
         BootstrapForTesting.ensureInitialized();
-        TransportService.ensureClassloaded(); // ensure server streamables are registered
 
         // filter out joda timezones that are deprecated for the java time migration
         List<String> jodaTZIds = DateTimeZone.getAvailableIDs()
@@ -818,22 +810,6 @@ public abstract class OpenSearchTestCase extends LuceneTestCase {
      * Modify this random generator if a wider range for BigIntegers is necessary.
      * @return a random bigInteger in the range [0 ; 2^64 - 1]
      */
-    public static BigInteger randomUnsignedLong() {
-        BigInteger value = randomBigInteger().abs();
-
-        while (value.compareTo(Numbers.MAX_UNSIGNED_LONG_VALUE) == 1) {
-            value = value.subtract(Numbers.MAX_UNSIGNED_LONG_VALUE);
-        }
-
-        return value;
-    }
-
-    /**
-     * Returns a random BigInteger uniformly distributed over the range 0 to (2^64 - 1) inclusive
-     * Currently BigIntegers are only used for unsigned_long field type, where the max value is 2^64 - 1.
-     * Modify this random generator if a wider range for BigIntegers is necessary.
-     * @return a random bigInteger in the range [0 ; 2^64 - 1]
-     */
     public static BigInteger randomBigInteger() {
         return new BigInteger(64, random());
     }
@@ -1200,14 +1176,6 @@ public abstract class OpenSearchTestCase extends LuceneTestCase {
         return builder;
     }
 
-    public static Settings.Builder remoteIndexSettings(Version version) {
-        Settings.Builder builder = Settings.builder()
-            .put(FileCache.DATA_TO_FILE_CACHE_SIZE_RATIO_SETTING.getKey(), 5)
-            .put(IndexMetadata.SETTING_VERSION_CREATED, version)
-            .put(IndexModule.INDEX_STORE_TYPE_SETTING.getKey(), IndexModule.Type.REMOTE_SNAPSHOT.getSettingsKey());
-        return builder;
-    }
-
     /**
      * Returns size random values
      */
@@ -1339,7 +1307,7 @@ public abstract class OpenSearchTestCase extends LuceneTestCase {
      */
     public static XContentBuilder shuffleXContent(XContentParser parser, boolean prettyPrint, String... exceptFieldNames)
         throws IOException {
-        XContentBuilder xContentBuilder = MediaTypeRegistry.contentBuilder(parser.contentType());
+        XContentBuilder xContentBuilder = XContentFactory.contentBuilder(parser.contentType());
         if (prettyPrint) {
             xContentBuilder.prettyPrint();
         }

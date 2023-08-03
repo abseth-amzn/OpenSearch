@@ -39,21 +39,16 @@ import org.opensearch.common.util.FeatureFlags;
 import org.opensearch.index.IndexModule;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.IndexingPressure;
-import org.opensearch.index.remote.RemoteRefreshSegmentPressureSettings;
 import org.opensearch.index.SegmentReplicationPressureService;
 import org.opensearch.index.ShardIndexingPressureMemoryManager;
 import org.opensearch.index.ShardIndexingPressureSettings;
 import org.opensearch.index.ShardIndexingPressureStore;
-import org.opensearch.index.store.remote.filecache.FileCache;
 import org.opensearch.search.backpressure.settings.NodeDuressSettings;
 import org.opensearch.search.backpressure.settings.SearchBackpressureSettings;
 import org.opensearch.search.backpressure.settings.SearchShardTaskSettings;
 import org.opensearch.search.backpressure.settings.SearchTaskSettings;
-import org.opensearch.tasks.TaskCancellationMonitoringSettings;
 import org.opensearch.tasks.TaskManager;
 import org.opensearch.tasks.TaskResourceTrackingService;
-import org.opensearch.tasks.consumer.TopNSearchTasksLogger;
-import org.opensearch.telemetry.TelemetrySettings;
 import org.opensearch.watcher.ResourceWatcherService;
 import org.opensearch.action.admin.cluster.configuration.TransportAddVotingConfigExclusionsAction;
 import org.opensearch.action.admin.indices.close.TransportCloseIndexAction;
@@ -261,7 +256,6 @@ public final class ClusterSettings extends AbstractScopedSettings {
                 IndicesQueryCache.INDICES_QUERIES_CACHE_ALL_SEGMENTS_SETTING,
                 IndicesService.INDICES_ID_FIELD_DATA_ENABLED_SETTING,
                 IndicesService.WRITE_DANGLING_INDICES_INFO_SETTING,
-                IndicesService.CLUSTER_REPLICATION_TYPE_SETTING,
                 MappingUpdatedAction.INDICES_MAPPING_DYNAMIC_TIMEOUT_SETTING,
                 MappingUpdatedAction.INDICES_MAX_IN_FLIGHT_UPDATES_SETTING,
                 Metadata.SETTING_READ_ONLY_SETTING,
@@ -552,7 +546,6 @@ public final class ClusterSettings extends AbstractScopedSettings {
                 OperationRouting.WEIGHTED_ROUTING_DEFAULT_WEIGHT,
                 OperationRouting.WEIGHTED_ROUTING_FAILOPEN_ENABLED,
                 OperationRouting.STRICT_WEIGHTED_SHARD_ROUTING_ENABLED,
-                OperationRouting.IGNORE_WEIGHTED_SHARD_ROUTING,
                 IndexGraveyard.SETTING_MAX_TOMBSTONES,
                 PersistentTasksClusterService.CLUSTER_TASKS_ALLOCATION_RECHECK_INTERVAL_SETTING,
                 EnableAssignmentDecider.CLUSTER_TASKS_ALLOCATION_ENABLE_SETTING,
@@ -605,11 +598,8 @@ public final class ClusterSettings extends AbstractScopedSettings {
                 IndexingPressure.MAX_INDEXING_BYTES,
                 TaskResourceTrackingService.TASK_RESOURCE_TRACKING_ENABLED,
                 TaskManager.TASK_RESOURCE_CONSUMERS_ENABLED,
-                TopNSearchTasksLogger.LOG_TOP_QUERIES_SIZE_SETTING,
-                TopNSearchTasksLogger.LOG_TOP_QUERIES_FREQUENCY_SETTING,
                 ClusterManagerTaskThrottler.THRESHOLD_SETTINGS,
-                ClusterManagerTaskThrottler.BASE_DELAY_SETTINGS,
-                ClusterManagerTaskThrottler.MAX_DELAY_SETTINGS,
+
                 // Settings related to search backpressure
                 SearchBackpressureSettings.SETTING_MODE,
 
@@ -640,24 +630,7 @@ public final class ClusterSettings extends AbstractScopedSettings {
                 SegmentReplicationPressureService.SEGMENT_REPLICATION_INDEXING_PRESSURE_ENABLED,
                 SegmentReplicationPressureService.MAX_INDEXING_CHECKPOINTS,
                 SegmentReplicationPressureService.MAX_REPLICATION_TIME_SETTING,
-                SegmentReplicationPressureService.MAX_ALLOWED_STALE_SHARDS,
-
-                // Settings related to Searchable Snapshots
-                Node.NODE_SEARCH_CACHE_SIZE_SETTING,
-                FileCache.DATA_TO_FILE_CACHE_SIZE_RATIO_SETTING,
-
-                // Settings related to Remote Refresh Segment Pressure
-                RemoteRefreshSegmentPressureSettings.REMOTE_REFRESH_SEGMENT_PRESSURE_ENABLED,
-                RemoteRefreshSegmentPressureSettings.BYTES_LAG_VARIANCE_FACTOR,
-                RemoteRefreshSegmentPressureSettings.UPLOAD_TIME_LAG_VARIANCE_FACTOR,
-                RemoteRefreshSegmentPressureSettings.MIN_CONSECUTIVE_FAILURES_LIMIT,
-                RemoteRefreshSegmentPressureSettings.UPLOAD_BYTES_MOVING_AVERAGE_WINDOW_SIZE,
-                RemoteRefreshSegmentPressureSettings.UPLOAD_BYTES_PER_SEC_MOVING_AVERAGE_WINDOW_SIZE,
-                RemoteRefreshSegmentPressureSettings.UPLOAD_TIME_MOVING_AVERAGE_WINDOW_SIZE,
-
-                // Related to monitoring of task cancellation
-                TaskCancellationMonitoringSettings.IS_ENABLED_SETTING,
-                TaskCancellationMonitoringSettings.DURATION_MILLIS_SETTING
+                SegmentReplicationPressureService.MAX_ALLOWED_STALE_SHARDS
             )
         )
     );
@@ -669,16 +642,9 @@ public final class ClusterSettings extends AbstractScopedSettings {
      * is ready for production release, the feature flag can be removed, and the
      * setting should be moved to {@link #BUILT_IN_CLUSTER_SETTINGS}.
      */
-    public static final Map<List<String>, List<Setting>> FEATURE_FLAGGED_CLUSTER_SETTINGS = Map.of(
-        List.of(FeatureFlags.REMOTE_STORE),
-        List.of(
-            IndicesService.CLUSTER_REMOTE_STORE_ENABLED_SETTING,
-            IndicesService.CLUSTER_REMOTE_SEGMENT_STORE_REPOSITORY_SETTING,
-            IndicesService.CLUSTER_REMOTE_TRANSLOG_REPOSITORY_SETTING
-        ),
-        List.of(FeatureFlags.CONCURRENT_SEGMENT_SEARCH),
-        List.of(SearchService.CLUSTER_CONCURRENT_SEGMENT_SEARCH_SETTING),
-        List.of(FeatureFlags.TELEMETRY),
-        List.of(TelemetrySettings.TRACER_ENABLED_SETTING)
+    public static final Map<String, List<Setting>> FEATURE_FLAGGED_CLUSTER_SETTINGS = Map.of(
+        FeatureFlags.SEARCHABLE_SNAPSHOT,
+        List.of(Node.NODE_SEARCH_CACHE_SIZE_SETTING)
     );
+
 }

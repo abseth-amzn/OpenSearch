@@ -62,12 +62,11 @@ import org.opensearch.common.io.PathUtils;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.env.Environment;
 import org.opensearch.env.NodeEnvironment;
 import org.opensearch.env.NodeMetadata;
 import org.opensearch.gateway.PersistedClusterStateService;
-import org.opensearch.core.index.Index;
+import org.opensearch.index.Index;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.engine.Engine;
 import org.opensearch.index.seqno.SequenceNumbers;
@@ -145,6 +144,8 @@ public class RemoveCorruptedShardDataCommand extends OpenSearchNodeCommand {
 
         final IndexMetadata indexMetadata;
         final int shardId;
+        final int fromNodeId;
+        final int toNodeId;
 
         if (options.has(folderOption)) {
             final Path path = getPath(folderOption.value(options)).getParent();
@@ -165,7 +166,10 @@ public class RemoveCorruptedShardDataCommand extends OpenSearchNodeCommand {
                 && NodeEnvironment.NODES_FOLDER.equals(shardParentParent.getParent().getParent().getFileName().toString()) // `nodes` check
             ) {
                 shardId = Integer.parseInt(shardIdFileName);
+                fromNodeId = Integer.parseInt(nodeIdFileName);
+                toNodeId = fromNodeId + 1;
                 indexMetadata = StreamSupport.stream(clusterState.metadata().indices().values().spliterator(), false)
+                    .map(imd -> imd.value)
                     .filter(imd -> imd.getIndexUUID().equals(indexUUIDFolderName))
                     .findFirst()
                     .orElse(null);
@@ -245,9 +249,11 @@ public class RemoveCorruptedShardDataCommand extends OpenSearchNodeCommand {
             );
         }
         String[] files = directory.listAll();
+        boolean found = false;
         for (String file : files) {
             if (file.startsWith(Store.CORRUPTED_MARKER_NAME_PREFIX)) {
                 directory.deleteFile(file);
+
                 terminal.println("Deleted corrupt marker " + file + " from " + path);
             }
         }

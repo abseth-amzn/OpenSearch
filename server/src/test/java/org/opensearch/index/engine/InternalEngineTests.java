@@ -32,6 +32,7 @@
 
 package org.opensearch.index.engine;
 
+import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import com.carrotsearch.randomizedtesting.generators.RandomNumbers;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -40,7 +41,6 @@ import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.apache.logging.log4j.core.filter.RegexFilter;
 import org.apache.lucene.document.Field;
-import org.apache.lucene.document.KeywordField;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.document.NumericDocValuesField;
 import org.apache.lucene.document.StoredField;
@@ -51,7 +51,6 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.IndexableField;
-import org.apache.lucene.index.IndexableFieldType;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.LiveIndexWriterConfig;
@@ -97,10 +96,11 @@ import org.opensearch.common.CheckedBiConsumer;
 import org.opensearch.common.CheckedRunnable;
 import org.opensearch.common.Randomness;
 import org.opensearch.common.SetOnce;
+import org.opensearch.common.Strings;
 import org.opensearch.common.TriFunction;
 import org.opensearch.common.UUIDs;
-import org.opensearch.core.common.bytes.BytesArray;
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.bytes.BytesArray;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.concurrent.GatedCloseable;
 import org.opensearch.common.logging.Loggers;
@@ -111,19 +111,17 @@ import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.common.lucene.uid.VersionsAndSeqNoResolver;
 import org.opensearch.common.lucene.uid.VersionsAndSeqNoResolver.DocIdAndSeqNo;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.common.unit.ByteSizeValue;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.BigArrays;
 import org.opensearch.common.util.concurrent.AbstractRunnable;
 import org.opensearch.common.util.concurrent.ConcurrentCollections;
 import org.opensearch.common.util.concurrent.ReleasableLock;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.common.util.io.IOUtils;
-import org.opensearch.core.common.Strings;
+import org.opensearch.core.internal.io.IOUtils;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.VersionType;
 import org.opensearch.index.codec.CodecService;
-import org.opensearch.index.engine.Engine.IndexResult;
 import org.opensearch.index.fieldvisitor.FieldsVisitor;
 import org.opensearch.index.mapper.IdFieldMapper;
 import org.opensearch.index.mapper.ParseContext;
@@ -139,7 +137,7 @@ import org.opensearch.index.seqno.RetentionLease;
 import org.opensearch.index.seqno.RetentionLeases;
 import org.opensearch.index.seqno.SeqNoStats;
 import org.opensearch.index.seqno.SequenceNumbers;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.index.shard.ShardUtils;
 import org.opensearch.index.store.Store;
 import org.opensearch.index.translog.DefaultTranslogDeletionPolicy;
@@ -151,7 +149,7 @@ import org.opensearch.index.translog.TranslogConfig;
 import org.opensearch.index.translog.TranslogDeletionPolicyFactory;
 import org.opensearch.index.translog.TranslogException;
 import org.opensearch.index.translog.listener.TranslogEventListener;
-import org.opensearch.core.indices.breaker.NoneCircuitBreakerService;
+import org.opensearch.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.test.IndexSettingsModule;
 import org.opensearch.test.VersionUtils;
 import org.opensearch.threadpool.ThreadPool;
@@ -429,15 +427,15 @@ public class InternalEngineTests extends EngineTestCase {
 
             SegmentsStats stats = engine.segmentsStats(true, false);
             assertThat(stats.getFileSizes().size(), greaterThan(0));
-            assertThat(() -> stats.getFileSizes().values().iterator(), everyItem(greaterThan(0L)));
+            assertThat(() -> stats.getFileSizes().valuesIt(), everyItem(greaterThan(0L)));
 
-            Map.Entry<String, Long> firstEntry = stats.getFileSizes().entrySet().iterator().next();
+            ObjectObjectCursor<String, Long> firstEntry = stats.getFileSizes().iterator().next();
 
             ParsedDocument doc2 = testParsedDocument("2", null, testDocumentWithTextField(), B_2, null);
             engine.index(indexForDoc(doc2));
             engine.refresh("test");
 
-            assertThat(engine.segmentsStats(true, false).getFileSizes().get(firstEntry.getKey()), greaterThan(firstEntry.getValue()));
+            assertThat(engine.segmentsStats(true, false).getFileSizes().get(firstEntry.key), greaterThan(firstEntry.value));
         }
     }
 
@@ -2541,7 +2539,6 @@ public class InternalEngineTests extends EngineTestCase {
         final Term uidTerm = newUid(doc);
         engine.index(indexForDoc(doc));
         final BiFunction<String, Engine.SearcherScope, Engine.Searcher> searcherFactory = engine::acquireSearcher;
-
         for (int i = 0; i < thread.length; i++) {
             thread[i] = new Thread(() -> {
                 startGun.countDown();
@@ -2550,12 +2547,10 @@ public class InternalEngineTests extends EngineTestCase {
                 } catch (InterruptedException e) {
                     throw new AssertionError(e);
                 }
-
                 for (int op = 0; op < opsPerThread; op++) {
                     try (Engine.GetResult get = engine.get(new Engine.Get(true, false, doc.id(), uidTerm), searcherFactory)) {
-
                         FieldsVisitor visitor = new FieldsVisitor(true);
-                        get.docIdAndVersion().reader.storedFields().document(get.docIdAndVersion().docId, visitor);
+                        get.docIdAndVersion().reader.document(get.docIdAndVersion().docId, visitor);
                         List<String> values = new ArrayList<>(Strings.commaDelimitedListToSet(visitor.source().utf8ToString()));
                         String removed = op % 3 == 0 && values.size() > 0 ? values.remove(0) : null;
                         String added = "v_" + idGenerator.incrementAndGet();
@@ -2611,7 +2606,7 @@ public class InternalEngineTests extends EngineTestCase {
 
         try (Engine.GetResult get = engine.get(new Engine.Get(true, false, doc.id(), uidTerm), searcherFactory)) {
             FieldsVisitor visitor = new FieldsVisitor(true);
-            get.docIdAndVersion().reader.storedFields().document(get.docIdAndVersion().docId, visitor);
+            get.docIdAndVersion().reader.document(get.docIdAndVersion().docId, visitor);
             List<String> values = Arrays.asList(Strings.commaDelimitedListToStringArray(visitor.source().utf8ToString()));
             assertThat(currentValues, equalTo(new HashSet<>(values)));
         }
@@ -3229,7 +3224,7 @@ public class InternalEngineTests extends EngineTestCase {
     }
 
     public void testSettings() {
-        CodecService codecService = new CodecService(null, engine.config().getIndexSettings(), logger);
+        CodecService codecService = new CodecService(null, logger);
         LiveIndexWriterConfig currentIndexWriterConfig = engine.getCurrentIndexWriterConfig();
 
         assertEquals(engine.config().getCodec().getName(), codecService.codec(codecName).getName());
@@ -3699,7 +3694,7 @@ public class InternalEngineTests extends EngineTestCase {
             .mergePolicy(newMergePolicy())
             .analyzer(config.getAnalyzer())
             .similarity(config.getSimilarity())
-            .codecService(new CodecService(null, config.getIndexSettings(), logger))
+            .codecService(new CodecService(null, logger))
             .eventListener(config.getEventListener())
             .queryCache(IndexSearcher.getDefaultQueryCache())
             .queryCachingPolicy(IndexSearcher.getDefaultQueryCachingPolicy())
@@ -3741,7 +3736,7 @@ public class InternalEngineTests extends EngineTestCase {
             .mergePolicy(config.getMergePolicy())
             .analyzer(config.getAnalyzer())
             .similarity(config.getSimilarity())
-            .codecService(new CodecService(null, config.getIndexSettings(), logger))
+            .codecService(new CodecService(null, logger))
             .eventListener(config.getEventListener())
             .queryCache(config.getQueryCache())
             .queryCachingPolicy(config.getQueryCachingPolicy())
@@ -3940,13 +3935,13 @@ public class InternalEngineTests extends EngineTestCase {
                 assertNotNull(indexResult.getTranslogLocation());
                 engine.index(indexForDoc(doc2));
 
-                try (engine) {
-                    // test non document level failure is thrown
-                    if (randomBoolean()) {
-                        // simulate close by corruption
-                        throwingIndexWriter.get().setThrowFailure(null);
+                // test non document level failure is thrown
+                if (randomBoolean()) {
+                    // simulate close by corruption
+                    throwingIndexWriter.get().setThrowFailure(null);
+                    UncheckedIOException uncheckedIOException = expectThrows(UncheckedIOException.class, () -> {
                         Engine.Index index = indexForDoc(doc3);
-                        index.parsedDoc().rootDoc().add(new KeywordField("foo", "bar", org.apache.lucene.document.Field.Store.YES) {
+                        index.parsedDoc().rootDoc().add(new StoredField("foo", "bar") {
                             // this is a hack to add a failure during store document which triggers a tragic event
                             // and in turn fails the engine
                             @Override
@@ -3954,14 +3949,13 @@ public class InternalEngineTests extends EngineTestCase {
                                 throw new UncheckedIOException(new MockDirectoryWrapper.FakeIOException());
                             }
                         });
-
-                        final IndexResult r = engine.index(index);
-                        assertThat(r.isCreated(), equalTo(false));
-                        assertThat(r.getFailure(), instanceOf(UncheckedIOException.class));
-                        assertThat(r.getFailure().getCause(), instanceOf(MockDirectoryWrapper.FakeIOException.class));
-                    }
+                        engine.index(index);
+                    });
+                    assertTrue(uncheckedIOException.getCause() instanceof MockDirectoryWrapper.FakeIOException);
+                } else {
+                    // normal close
+                    engine.close();
                 }
-
                 // now the engine is closed check we respond correctly
                 expectThrows(AlreadyClosedException.class, () -> engine.index(indexForDoc(doc1)));
                 expectThrows(AlreadyClosedException.class, () -> engine.delete(new Engine.Delete("", newUid(doc1), primaryTerm.get())));
@@ -3992,7 +3986,7 @@ public class InternalEngineTests extends EngineTestCase {
                         // this is a hack to add a failure during store document which triggers a tragic event
                         // and in turn fails the engine
                         @Override
-                        public IndexableFieldType fieldType() {
+                        public BytesRef binaryValue() {
                             throw tragicException;
                         }
                     });
@@ -6640,7 +6634,6 @@ public class InternalEngineTests extends EngineTestCase {
                 while (done.get() == false) {
                     long checkPointBeforeRefresh = engine.getProcessedLocalCheckpoint();
                     engine.refresh("test", randomFrom(Engine.SearcherScope.values()), true);
-                    assertThat(engine.currentOngoingRefreshCheckpoint(), greaterThanOrEqualTo(engine.lastRefreshedCheckpoint()));
                     assertThat(engine.lastRefreshedCheckpoint(), greaterThanOrEqualTo(checkPointBeforeRefresh));
                 }
             });
@@ -6654,7 +6647,6 @@ public class InternalEngineTests extends EngineTestCase {
             thread.join();
         }
         engine.refresh("test");
-        assertThat(engine.currentOngoingRefreshCheckpoint(), greaterThanOrEqualTo(engine.lastRefreshedCheckpoint()));
         assertThat(engine.lastRefreshedCheckpoint(), equalTo(engine.getProcessedLocalCheckpoint()));
     }
 
@@ -7387,7 +7379,7 @@ public class InternalEngineTests extends EngineTestCase {
                 .mergePolicy(config.getMergePolicy())
                 .analyzer(config.getAnalyzer())
                 .similarity(config.getSimilarity())
-                .codecService(new CodecService(null, config.getIndexSettings(), logger))
+                .codecService(new CodecService(null, logger))
                 .eventListener(config.getEventListener())
                 .queryCache(config.getQueryCache())
                 .queryCachingPolicy(config.getQueryCachingPolicy())

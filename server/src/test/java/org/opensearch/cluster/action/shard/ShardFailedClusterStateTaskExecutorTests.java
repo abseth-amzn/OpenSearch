@@ -32,6 +32,7 @@
 
 package org.opensearch.cluster.action.shard;
 
+import com.carrotsearch.hppc.cursors.ObjectCursor;
 import org.apache.lucene.index.CorruptIndexException;
 import org.opensearch.Version;
 import org.opensearch.cluster.ClusterName;
@@ -58,8 +59,8 @@ import org.opensearch.common.UUIDs;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.set.Sets;
-import org.opensearch.core.index.Index;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.Index;
+import org.opensearch.index.shard.ShardId;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -274,8 +275,8 @@ public class ShardFailedClusterStateTaskExecutorTests extends OpenSearchAllocati
         String nonExistentIndexUUID = "non-existent";
         Index index = new Index("non-existent", nonExistentIndexUUID);
         List<String> nodeIds = new ArrayList<>();
-        for (final String nodeId : currentState.nodes().getNodes().keySet()) {
-            nodeIds.add(nodeId);
+        for (ObjectCursor<String> nodeId : currentState.nodes().getNodes().keys()) {
+            nodeIds.add(nodeId.toString());
         }
         List<ShardRouting> nonExistentShards = new ArrayList<>();
         nonExistentShards.add(nonExistentShardRouting(index, nodeIds, true));

@@ -37,10 +37,10 @@ import org.opensearch.Version;
 import org.opensearch.action.support.nodes.BaseNodeResponse;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.Nullable;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.common.unit.ByteSizeValue;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.http.HttpInfo;
 import org.opensearch.ingest.IngestInfo;
 import org.opensearch.monitor.jvm.JvmInfo;
@@ -48,7 +48,6 @@ import org.opensearch.monitor.os.OsInfo;
 import org.opensearch.monitor.process.ProcessInfo;
 import org.opensearch.node.ReportingService;
 import org.opensearch.search.aggregations.support.AggregationInfo;
-import org.opensearch.search.pipeline.SearchPipelineInfo;
 import org.opensearch.threadpool.ThreadPoolInfo;
 import org.opensearch.transport.TransportInfo;
 
@@ -81,8 +80,8 @@ public class NodeInfo extends BaseNodeResponse {
 
     public NodeInfo(StreamInput in) throws IOException {
         super(in);
-        version = in.readVersion();
-        build = in.readBuild();
+        version = Version.readVersion(in);
+        build = Build.readBuild(in);
         if (in.readBoolean()) {
             totalIndexingBuffer = new ByteSizeValue(in.readLong());
         } else {
@@ -100,9 +99,6 @@ public class NodeInfo extends BaseNodeResponse {
         addInfoIfNonNull(PluginsAndModules.class, in.readOptionalWriteable(PluginsAndModules::new));
         addInfoIfNonNull(IngestInfo.class, in.readOptionalWriteable(IngestInfo::new));
         addInfoIfNonNull(AggregationInfo.class, in.readOptionalWriteable(AggregationInfo::new));
-        if (in.getVersion().onOrAfter(Version.V_2_7_0)) {
-            addInfoIfNonNull(SearchPipelineInfo.class, in.readOptionalWriteable(SearchPipelineInfo::new));
-        }
     }
 
     public NodeInfo(
@@ -119,8 +115,7 @@ public class NodeInfo extends BaseNodeResponse {
         @Nullable PluginsAndModules plugins,
         @Nullable IngestInfo ingest,
         @Nullable AggregationInfo aggsInfo,
-        @Nullable ByteSizeValue totalIndexingBuffer,
-        @Nullable SearchPipelineInfo searchPipelineInfo
+        @Nullable ByteSizeValue totalIndexingBuffer
     ) {
         super(node);
         this.version = version;
@@ -135,7 +130,6 @@ public class NodeInfo extends BaseNodeResponse {
         addInfoIfNonNull(PluginsAndModules.class, plugins);
         addInfoIfNonNull(IngestInfo.class, ingest);
         addInfoIfNonNull(AggregationInfo.class, aggsInfo);
-        addInfoIfNonNull(SearchPipelineInfo.class, searchPipelineInfo);
         this.totalIndexingBuffer = totalIndexingBuffer;
     }
 
@@ -202,7 +196,7 @@ public class NodeInfo extends BaseNodeResponse {
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeVInt(version.id);
-        out.writeBuild(build);
+        Build.writeBuild(build, out);
         if (totalIndexingBuffer == null) {
             out.writeBoolean(false);
         } else {
@@ -224,122 +218,5 @@ public class NodeInfo extends BaseNodeResponse {
         out.writeOptionalWriteable(getInfo(PluginsAndModules.class));
         out.writeOptionalWriteable(getInfo(IngestInfo.class));
         out.writeOptionalWriteable(getInfo(AggregationInfo.class));
-        if (out.getVersion().onOrAfter(Version.V_2_7_0)) {
-            out.writeOptionalWriteable(getInfo(SearchPipelineInfo.class));
-        }
     }
-
-    public static NodeInfo.Builder builder(Version version, Build build, DiscoveryNode node) {
-        return new Builder(version, build, node);
-    }
-
-    /**
-     * Builder class to accommodate new Info types being added to NodeInfo.
-     */
-    public static class Builder {
-        private final Version version;
-        private final Build build;
-        private final DiscoveryNode node;
-
-        private Builder(Version version, Build build, DiscoveryNode node) {
-            this.version = version;
-            this.build = build;
-            this.node = node;
-        }
-
-        private Settings settings;
-        private OsInfo os;
-        private ProcessInfo process;
-        private JvmInfo jvm;
-        private ThreadPoolInfo threadPool;
-        private TransportInfo transport;
-        private HttpInfo http;
-        private PluginsAndModules plugins;
-        private IngestInfo ingest;
-        private AggregationInfo aggsInfo;
-        private ByteSizeValue totalIndexingBuffer;
-        private SearchPipelineInfo searchPipelineInfo;
-
-        public Builder setSettings(Settings settings) {
-            this.settings = settings;
-            return this;
-        }
-
-        public Builder setOs(OsInfo os) {
-            this.os = os;
-            return this;
-        }
-
-        public Builder setProcess(ProcessInfo process) {
-            this.process = process;
-            return this;
-        }
-
-        public Builder setJvm(JvmInfo jvm) {
-            this.jvm = jvm;
-            return this;
-        }
-
-        public Builder setThreadPool(ThreadPoolInfo threadPool) {
-            this.threadPool = threadPool;
-            return this;
-        }
-
-        public Builder setTransport(TransportInfo transport) {
-            this.transport = transport;
-            return this;
-        }
-
-        public Builder setHttp(HttpInfo http) {
-            this.http = http;
-            return this;
-        }
-
-        public Builder setPlugins(PluginsAndModules plugins) {
-            this.plugins = plugins;
-            return this;
-        }
-
-        public Builder setIngest(IngestInfo ingest) {
-            this.ingest = ingest;
-            return this;
-        }
-
-        public Builder setAggsInfo(AggregationInfo aggsInfo) {
-            this.aggsInfo = aggsInfo;
-            return this;
-        }
-
-        public Builder setTotalIndexingBuffer(ByteSizeValue totalIndexingBuffer) {
-            this.totalIndexingBuffer = totalIndexingBuffer;
-            return this;
-        }
-
-        public Builder setSearchPipelineInfo(SearchPipelineInfo searchPipelineInfo) {
-            this.searchPipelineInfo = searchPipelineInfo;
-            return this;
-        }
-
-        public NodeInfo build() {
-            return new NodeInfo(
-                version,
-                build,
-                node,
-                settings,
-                os,
-                process,
-                jvm,
-                threadPool,
-                transport,
-                http,
-                plugins,
-                ingest,
-                aggsInfo,
-                totalIndexingBuffer,
-                searchPipelineInfo
-            );
-        }
-
-    }
-
 }

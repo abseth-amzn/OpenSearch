@@ -37,8 +37,8 @@ import org.opensearch.action.support.nodes.BaseNodesResponse;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNodeRole;
 import org.opensearch.common.Strings;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.ToXContentFragment;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -49,7 +49,6 @@ import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.os.OsInfo;
 import org.opensearch.monitor.process.ProcessInfo;
 import org.opensearch.search.aggregations.support.AggregationInfo;
-import org.opensearch.search.pipeline.SearchPipelineInfo;
 import org.opensearch.threadpool.ThreadPoolInfo;
 import org.opensearch.transport.TransportInfo;
 
@@ -147,9 +146,6 @@ public class NodesInfoResponse extends BaseNodesResponse<NodeInfo> implements To
             }
             if (nodeInfo.getInfo(AggregationInfo.class) != null) {
                 nodeInfo.getInfo(AggregationInfo.class).toXContent(builder, params);
-            }
-            if (nodeInfo.getInfo(SearchPipelineInfo.class) != null) {
-                nodeInfo.getInfo(SearchPipelineInfo.class).toXContent(builder, params);
             }
 
             builder.endObject();

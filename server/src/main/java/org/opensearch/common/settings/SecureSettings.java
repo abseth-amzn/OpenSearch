@@ -32,8 +32,6 @@
 
 package org.opensearch.common.settings;
 
-import org.opensearch.core.common.settings.SecureString;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;

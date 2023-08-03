@@ -118,9 +118,7 @@ public class MockInternalClusterInfoService extends InternalClusterInfoService {
                 nodeStats.getSearchBackpressureStats(),
                 nodeStats.getClusterManagerThrottlingStats(),
                 nodeStats.getWeightedRoutingStats(),
-                nodeStats.getFileCacheStats(),
-                nodeStats.getTaskCancellationStats(),
-                nodeStats.getSearchPipelineStats()
+                nodeStats.getFileCacheStats()
             );
         }).collect(Collectors.toList());
     }
@@ -132,8 +130,7 @@ public class MockInternalClusterInfoService extends InternalClusterInfoService {
                 delegate.getNodeMostAvailableDiskUsages(),
                 delegate.shardSizes,
                 delegate.routingToDataPath,
-                delegate.reservedSpace,
-                delegate.nodeFileCacheStats
+                delegate.reservedSpace
             );
         }
 

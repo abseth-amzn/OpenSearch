@@ -62,19 +62,19 @@ import org.opensearch.common.Nullable;
 import org.opensearch.common.Priority;
 import org.opensearch.common.SetOnce;
 import org.opensearch.common.Strings;
-import org.opensearch.common.lifecycle.AbstractLifecycleComponent;
-import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.common.component.AbstractLifecycleComponent;
+import org.opensearch.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.common.transport.TransportAddress;
+import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.OpenSearchExecutors;
 import org.opensearch.common.util.concurrent.ListenableFuture;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.common.xcontent.json.JsonXContent;
-import org.opensearch.common.lease.Releasable;
 import org.opensearch.discovery.Discovery;
 import org.opensearch.discovery.DiscoveryModule;
 import org.opensearch.discovery.DiscoveryStats;
@@ -86,7 +86,7 @@ import org.opensearch.monitor.NodeHealthService;
 import org.opensearch.monitor.StatusInfo;
 import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool.Names;
-import org.opensearch.core.transport.TransportResponse.Empty;
+import org.opensearch.transport.TransportResponse.Empty;
 import org.opensearch.transport.TransportService;
 
 import java.io.IOException;
@@ -222,8 +222,7 @@ public class Coordinator extends AbstractLifecycleComponent implements Discovery
             this.onJoinValidators,
             rerouteService,
             nodeHealthService,
-            this::onNodeCommissionStatusChange,
-            namedWriteableRegistry
+            this::onNodeCommissionStatusChange
         );
         this.persistedStateSupplier = persistedStateSupplier;
         this.noClusterManagerBlockService = new NoClusterManagerBlockService(settings, clusterSettings);

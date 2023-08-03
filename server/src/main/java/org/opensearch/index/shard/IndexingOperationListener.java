@@ -33,7 +33,6 @@ package org.opensearch.index.shard;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.index.engine.Engine;
 
 import java.util.List;

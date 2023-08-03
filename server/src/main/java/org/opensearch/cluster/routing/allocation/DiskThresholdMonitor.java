@@ -32,6 +32,8 @@
 
 package org.opensearch.cluster.routing.allocation;
 
+import com.carrotsearch.hppc.ObjectLookupContainer;
+import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -50,17 +52,16 @@ import org.opensearch.cluster.routing.RoutingNodes;
 import org.opensearch.cluster.routing.ShardRouting;
 import org.opensearch.cluster.routing.allocation.decider.DiskThresholdDecider;
 import org.opensearch.common.Priority;
+import org.opensearch.common.Strings;
+import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.set.Sets;
-import org.opensearch.core.common.Strings;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.Spliterators;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
@@ -133,7 +134,7 @@ public class DiskThresholdMonitor {
             return;
         }
 
-        final Map<String, DiskUsage> usages = info.getNodeLeastAvailableDiskUsages();
+        final ImmutableOpenMap<String, DiskUsage> usages = info.getNodeLeastAvailableDiskUsages();
         if (usages == null) {
             logger.trace("skipping monitor as no disk usage information is available");
             checkFinished();
@@ -147,7 +148,7 @@ public class DiskThresholdMonitor {
         final long currentTimeMillis = currentTimeMillisSupplier.getAsLong();
 
         // Clean up nodes that have been removed from the cluster
-        final Set<String> nodes = usages.keySet();
+        final ObjectLookupContainer<String> nodes = usages.keys();
         cleanUpRemovedNodes(nodes, nodesOverLowThreshold);
         cleanUpRemovedNodes(nodes, nodesOverHighThreshold);
         cleanUpRemovedNodes(nodes, nodesOverHighThresholdAndRelocating);
@@ -160,9 +161,9 @@ public class DiskThresholdMonitor {
 
         final List<DiskUsage> usagesOverHighThreshold = new ArrayList<>();
 
-        for (final Map.Entry<String, DiskUsage> entry : usages.entrySet()) {
-            final String node = entry.getKey();
-            final DiskUsage usage = entry.getValue();
+        for (final ObjectObjectCursor<String, DiskUsage> entry : usages) {
+            final String node = entry.key;
+            final DiskUsage usage = entry.value;
             final RoutingNode routingNode = routingNodes.node(node);
 
             if (usage.getFreeBytes() < diskThresholdSettings.getFreeBytesThresholdFloodStage().getBytes()
@@ -352,11 +353,8 @@ public class DiskThresholdMonitor {
             logger.trace("no reroute required");
             listener.onResponse(null);
         }
-        final Set<String> indicesToAutoRelease = StreamSupport.stream(
-            Spliterators.spliterator(state.routingTable().indicesRouting().entrySet(), 0),
-            false
-        )
-            .map(c -> c.getKey())
+        final Set<String> indicesToAutoRelease = StreamSupport.stream(state.routingTable().indicesRouting().spliterator(), false)
+            .map(c -> c.key)
             .filter(index -> indicesNotToAutoRelease.contains(index) == false)
             .filter(index -> state.getBlocks().hasIndexBlock(index, IndexMetadata.INDEX_READ_ONLY_ALLOW_DELETE_BLOCK))
             .collect(Collectors.toSet());
@@ -403,7 +401,7 @@ public class DiskThresholdMonitor {
 
     private void markNodesMissingUsageIneligibleForRelease(
         RoutingNodes routingNodes,
-        Map<String, DiskUsage> usages,
+        ImmutableOpenMap<String, DiskUsage> usages,
         Set<String> indicesToMarkIneligibleForAutoRelease
     ) {
         for (RoutingNode routingNode : routingNodes) {
@@ -461,7 +459,7 @@ public class DiskThresholdMonitor {
             .execute(ActionListener.map(wrappedListener, r -> null));
     }
 
-    private static void cleanUpRemovedNodes(Set<String> nodesToKeep, Set<String> nodesToCleanUp) {
+    private static void cleanUpRemovedNodes(ObjectLookupContainer<String> nodesToKeep, Set<String> nodesToCleanUp) {
         for (String node : nodesToCleanUp) {
             if (nodesToKeep.contains(node) == false) {
                 nodesToCleanUp.remove(node);

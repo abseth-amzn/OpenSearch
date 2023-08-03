@@ -31,6 +31,8 @@
 
 package org.opensearch.geo.search.aggregations.bucket;
 
+import com.carrotsearch.hppc.ObjectIntHashMap;
+import com.carrotsearch.hppc.cursors.ObjectIntCursor;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.common.geo.GeoBoundingBox;
 import org.opensearch.common.geo.GeoPoint;
@@ -47,7 +49,6 @@ import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.bucket.filter.Filter;
 import org.opensearch.test.OpenSearchIntegTestCase;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
@@ -69,7 +70,7 @@ public class GeoHashGridIT extends AbstractGeoBucketAggregationIntegTest {
         Random random = random();
         // Creating a BB for limiting the number buckets generated during aggregation
         boundingRectangleForGeoShapesAgg = getGridAggregationBoundingBox(random);
-        expectedDocCountsForSingleGeoPoint = new HashMap<>();
+        expectedDocCountsForSingleGeoPoint = new ObjectIntHashMap<>();
         prepareSingleValueGeoPointIndex(random);
         prepareMultiValuedGeoPointIndex(random);
         prepareGeoShapeIndexForAggregations(random);
@@ -231,9 +232,9 @@ public class GeoHashGridIT extends AbstractGeoBucketAggregationIntegTest {
                 String geohash = cell.getKeyAsString();
                 long bucketCount = cell.getDocCount();
                 int expectedBucketCount = 0;
-                for (var cursor : expectedDocCountsForSingleGeoPoint.entrySet()) {
-                    if (cursor.getKey().length() == precision) {
-                        expectedBucketCount = Math.max(expectedBucketCount, cursor.getValue());
+                for (ObjectIntCursor<String> cursor : expectedDocCountsForSingleGeoPoint) {
+                    if (cursor.key.length() == precision) {
+                        expectedBucketCount = Math.max(expectedBucketCount, cursor.value);
                     }
                 }
                 assertNotSame(bucketCount, 0);

@@ -32,6 +32,7 @@
 
 package org.opensearch.index.engine;
 
+import com.carrotsearch.hppc.LongArrayList;
 import org.apache.lucene.index.IndexCommit;
 import org.apache.lucene.store.Directory;
 import org.opensearch.index.seqno.RetentionLeases;
@@ -73,7 +74,7 @@ public class CombinedDeletionPolicyTests extends OpenSearchTestCase {
         TranslogDeletionPolicy translogPolicy = createTranslogDeletionPolicy();
         CombinedDeletionPolicy indexPolicy = newCombinedDeletionPolicy(translogPolicy, softDeletesPolicy, globalCheckpoint);
 
-        final List<Long> maxSeqNoList = new ArrayList<>();
+        final LongArrayList maxSeqNoList = new LongArrayList();
         final List<IndexCommit> commitList = new ArrayList<>();
         int totalCommits = between(2, 20);
         long lastMaxSeqNo = 0;

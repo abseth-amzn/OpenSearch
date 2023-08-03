@@ -8,13 +8,12 @@
 
 package org.opensearch.extensions.rest;
 
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.extensions.proto.ExtensionIdentityProto.ExtensionIdentity;
-import org.opensearch.extensions.proto.RegisterRestActionsProto.RegisterRestActions;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.transport.TransportRequest;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -24,49 +23,38 @@ import java.util.Objects;
  * @opensearch.internal
  */
 public class RegisterRestActionsRequest extends TransportRequest {
-    private final RegisterRestActions request;
+    private String uniqueId;
+    private List<String> restActions;
 
-    public RegisterRestActionsRequest(String uniqueId, List<String> restActions, List<String> deprecatedRestActions) {
-        ExtensionIdentity identity = ExtensionIdentity.newBuilder().setUniqueId(uniqueId).build();
-        this.request = RegisterRestActions.newBuilder()
-            .setIdentity(identity)
-            .addAllRestActions(restActions)
-            .addAllDeprecatedRestActions(deprecatedRestActions)
-            .build();
+    public RegisterRestActionsRequest(String uniqueId, List<String> restActions) {
+        this.uniqueId = uniqueId;
+        this.restActions = new ArrayList<>(restActions);
     }
 
     public RegisterRestActionsRequest(StreamInput in) throws IOException {
         super(in);
-        request = RegisterRestActions.parseFrom(in.readByteArray());
+        uniqueId = in.readString();
+        restActions = in.readStringList();
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        out.writeByteArray(request.toByteArray());
+        out.writeString(uniqueId);
+        out.writeStringCollection(restActions);
     }
 
     public String getUniqueId() {
-        return request.getIdentity().getUniqueId();
+        return uniqueId;
     }
 
     public List<String> getRestActions() {
-        return List.copyOf(request.getRestActionsList());
-    }
-
-    public List<String> getDeprecatedRestActions() {
-        return List.copyOf(request.getDeprecatedRestActionsList());
+        return new ArrayList<>(restActions);
     }
 
     @Override
     public String toString() {
-        return "RestActionsRequest{Identity="
-            + request.getIdentity()
-            + ", restActions="
-            + request.getRestActionsList()
-            + ", deprecatedRestActions="
-            + request.getDeprecatedRestActionsList()
-            + "}";
+        return "RestActionsRequest{uniqueId=" + uniqueId + ", restActions=" + restActions + "}";
     }
 
     @Override
@@ -74,13 +62,11 @@ public class RegisterRestActionsRequest extends TransportRequest {
         if (this == obj) return true;
         if (obj == null || getClass() != obj.getClass()) return false;
         RegisterRestActionsRequest that = (RegisterRestActionsRequest) obj;
-        return Objects.equals(request.getIdentity().getUniqueId(), that.request.getIdentity().getUniqueId())
-            && Objects.equals(request.getRestActionsList(), that.request.getRestActionsList())
-            && Objects.equals(request.getDeprecatedRestActionsList(), that.request.getDeprecatedRestActionsList());
+        return Objects.equals(uniqueId, that.uniqueId) && Objects.equals(restActions, that.restActions);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(request.getIdentity(), request.getRestActionsList(), request.getDeprecatedRestActionsList());
+        return Objects.hash(uniqueId, restActions);
     }
 }

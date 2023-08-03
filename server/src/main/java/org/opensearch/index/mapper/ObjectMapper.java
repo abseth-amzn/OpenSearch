@@ -35,7 +35,6 @@ package org.opensearch.index.mapper;
 import org.apache.lucene.search.Query;
 import org.opensearch.OpenSearchParseException;
 import org.opensearch.Version;
-import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.collect.CopyOnWriteHashMap;
@@ -452,7 +451,7 @@ public class ObjectMapper extends Mapper implements Cloneable {
         } else {
             this.mappers = CopyOnWriteHashMap.copyOf(mappers);
         }
-        Version version = IndexMetadata.indexCreated(settings);
+        Version version = Version.indexCreated(settings);
         if (version.before(Version.V_2_0_0)) {
             this.nestedTypePath = "__" + fullPath;
         } else {

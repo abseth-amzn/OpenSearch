@@ -32,9 +32,10 @@
 
 package org.opensearch.action.termvectors;
 
+import com.carrotsearch.hppc.IntArrayList;
 import org.opensearch.action.ActionResponse;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -47,12 +48,12 @@ import java.util.List;
  */
 public class MultiTermVectorsShardResponse extends ActionResponse {
 
-    final List<Integer> locations;
+    final IntArrayList locations;
     final List<TermVectorsResponse> responses;
     final List<MultiTermVectorsResponse.Failure> failures;
 
     MultiTermVectorsShardResponse() {
-        locations = new ArrayList<>();
+        locations = new IntArrayList();
         responses = new ArrayList<>();
         failures = new ArrayList<>();
     }
@@ -60,7 +61,7 @@ public class MultiTermVectorsShardResponse extends ActionResponse {
     MultiTermVectorsShardResponse(StreamInput in) throws IOException {
         super(in);
         int size = in.readVInt();
-        locations = new ArrayList<>(size);
+        locations = new IntArrayList(size);
         responses = new ArrayList<>(size);
         failures = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {

@@ -35,8 +35,7 @@ package org.opensearch.script.mustache;
 import org.apache.lucene.search.TotalHits;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.ShardSearchFailure;
-import org.opensearch.core.common.bytes.BytesReference;
-import org.opensearch.core.xcontent.MediaTypeRegistry;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -165,7 +164,7 @@ public class SearchTemplateResponseTests extends AbstractXContentTestCase<Search
         response.setSource(BytesReference.bytes(source));
 
         XContentType contentType = randomFrom(XContentType.values());
-        XContentBuilder expectedResponse = MediaTypeRegistry.contentBuilder(contentType)
+        XContentBuilder expectedResponse = XContentFactory.contentBuilder(contentType)
             .startObject()
             .startObject("template_output")
             .startObject("query")
@@ -176,7 +175,7 @@ public class SearchTemplateResponseTests extends AbstractXContentTestCase<Search
             .endObject()
             .endObject();
 
-        XContentBuilder actualResponse = MediaTypeRegistry.contentBuilder(contentType);
+        XContentBuilder actualResponse = XContentFactory.contentBuilder(contentType);
         response.toXContent(actualResponse, ToXContent.EMPTY_PARAMS);
 
         assertToXContentEquivalent(BytesReference.bytes(expectedResponse), BytesReference.bytes(actualResponse), contentType);
@@ -211,7 +210,7 @@ public class SearchTemplateResponseTests extends AbstractXContentTestCase<Search
         response.setResponse(searchResponse);
 
         XContentType contentType = randomFrom(XContentType.values());
-        XContentBuilder expectedResponse = MediaTypeRegistry.contentBuilder(contentType)
+        XContentBuilder expectedResponse = XContentFactory.contentBuilder(contentType)
             .startObject()
             .field("took", 0)
             .field("timed_out", false)
@@ -236,7 +235,7 @@ public class SearchTemplateResponseTests extends AbstractXContentTestCase<Search
             .endObject()
             .endObject();
 
-        XContentBuilder actualResponse = MediaTypeRegistry.contentBuilder(contentType);
+        XContentBuilder actualResponse = XContentFactory.contentBuilder(contentType);
         response.toXContent(actualResponse, ToXContent.EMPTY_PARAMS);
 
         assertToXContentEquivalent(BytesReference.bytes(expectedResponse), BytesReference.bytes(actualResponse), contentType);

@@ -8,10 +8,6 @@
 
 package org.opensearch.index.store.remote.filecache;
 
-import org.apache.lucene.store.IndexInput;
-import org.opensearch.core.common.breaker.CircuitBreaker;
-import org.opensearch.core.common.breaker.CircuitBreakingException;
-import org.opensearch.common.settings.Setting;
 import org.opensearch.index.store.remote.utils.cache.CacheUsage;
 import org.opensearch.index.store.remote.utils.cache.RefCountedCache;
 import org.opensearch.index.store.remote.utils.cache.SegmentedCache;
@@ -23,7 +19,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.function.BiFunction;
-import java.util.function.Predicate;
 
 import static org.opensearch.index.store.remote.directory.RemoteSnapshotDirectoryFactory.LOCAL_STORE_LOCATION;
 
@@ -48,26 +43,8 @@ import static org.opensearch.index.store.remote.directory.RemoteSnapshotDirector
 public class FileCache implements RefCountedCache<Path, CachedIndexInput> {
     private final SegmentedCache<Path, CachedIndexInput> theCache;
 
-    private final CircuitBreaker circuitBreaker;
-
-    /**
-     * Defines a limit of how much total remote data can be referenced as a ratio of the size of the disk reserved for
-     * the file cache. For example, if 100GB disk space is configured for use as a file cache and the
-     * remote_data_ratio of 5 is defined, then a total of 500GB of remote data can be loaded as searchable snapshots.
-     * This is designed to be a safeguard to prevent oversubscribing a cluster.
-     * Specify a value of zero for no limit, which is the default for compatibility reasons.
-     */
-    public static final Setting<Double> DATA_TO_FILE_CACHE_SIZE_RATIO_SETTING = Setting.doubleSetting(
-        "cluster.filecache.remote_data_ratio",
-        0.0,
-        0.0,
-        Setting.Property.NodeScope,
-        Setting.Property.Dynamic
-    );
-
-    public FileCache(SegmentedCache<Path, CachedIndexInput> cache, CircuitBreaker circuitBreaker) {
+    public FileCache(SegmentedCache<Path, CachedIndexInput> cache) {
         this.theCache = cache;
-        this.circuitBreaker = circuitBreaker;
     }
 
     public long capacity() {
@@ -76,9 +53,7 @@ public class FileCache implements RefCountedCache<Path, CachedIndexInput> {
 
     @Override
     public CachedIndexInput put(Path filePath, CachedIndexInput indexInput) {
-        CachedIndexInput cachedIndexInput = theCache.put(filePath, indexInput);
-        checkParentBreaker(filePath);
-        return cachedIndexInput;
+        return theCache.put(filePath, indexInput);
     }
 
     @Override
@@ -86,9 +61,7 @@ public class FileCache implements RefCountedCache<Path, CachedIndexInput> {
         Path key,
         BiFunction<? super Path, ? super CachedIndexInput, ? extends CachedIndexInput> remappingFunction
     ) {
-        CachedIndexInput cachedIndexInput = theCache.compute(key, remappingFunction);
-        checkParentBreaker(key);
-        return cachedIndexInput;
+        return theCache.compute(key, remappingFunction);
     }
 
     /**
@@ -139,11 +112,6 @@ public class FileCache implements RefCountedCache<Path, CachedIndexInput> {
     }
 
     @Override
-    public long prune(Predicate<Path> keyPredicate) {
-        return theCache.prune(keyPredicate);
-    }
-
-    @Override
     public CacheUsage usage() {
         return theCache.usage();
     }
@@ -151,24 +119,6 @@ public class FileCache implements RefCountedCache<Path, CachedIndexInput> {
     @Override
     public CacheStats stats() {
         return theCache.stats();
-    }
-
-    /**
-     * Ensures that the PARENT breaker is not tripped when an entry is added to the cache
-     * @param filePath the path key for which entry is added
-     */
-    private void checkParentBreaker(Path filePath) {
-        try {
-            circuitBreaker.addEstimateBytesAndMaybeBreak(0, "filecache_entry");
-        } catch (CircuitBreakingException ex) {
-            theCache.remove(filePath);
-            throw new CircuitBreakingException(
-                "Unable to create file cache entries",
-                ex.getBytesWanted(),
-                ex.getByteLimit(),
-                ex.getDurability()
-            );
-        }
     }
 
     /**
@@ -194,8 +144,7 @@ public class FileCache implements RefCountedCache<Path, CachedIndexInput> {
             .filter(Files::isRegularFile)
             .forEach(path -> {
                 try {
-                    put(path.toAbsolutePath(), new RestoredCachedIndexInput(Files.size(path)));
-                    decRef(path.toAbsolutePath());
+                    put(path.toAbsolutePath(), new FileCachedIndexInput.ClosedIndexInput(Files.size(path)));
                 } catch (IOException e) {
                     throw new UncheckedIOException(
                         "Unable to retrieve cache file details. Please clear the file cache for node startup.",
@@ -203,57 +152,5 @@ public class FileCache implements RefCountedCache<Path, CachedIndexInput> {
                     );
                 }
             });
-    }
-
-    /**
-     * Returns the current {@link FileCacheStats}
-     */
-    public FileCacheStats fileCacheStats() {
-        CacheStats stats = stats();
-        CacheUsage usage = usage();
-        return new FileCacheStats(
-            System.currentTimeMillis(),
-            usage.activeUsage(),
-            capacity(),
-            usage.usage(),
-            stats.evictionWeight(),
-            stats.hitCount(),
-            stats.missCount()
-        );
-    }
-
-    /**
-     * Placeholder for the existing file blocks that are in the disk-based
-     * local cache at node startup time. We can't open a file handle to these
-     * blocks at this point, so we store this placeholder object in the cache.
-     * If a block is needed, then these entries will be replaced with a proper
-     * entry that will open the actual file handle to create the IndexInput.
-     * These entries are eligible for eviction so if nothing needs to reference
-     * them they will be deleted when the disk-based local cache fills up.
-     */
-    private static class RestoredCachedIndexInput implements CachedIndexInput {
-        private final long length;
-
-        private RestoredCachedIndexInput(long length) {
-            this.length = length;
-        }
-
-        @Override
-        public IndexInput getIndexInput() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public long length() {
-            return length;
-        }
-
-        @Override
-        public boolean isClosed() {
-            return true;
-        }
-
-        @Override
-        public void close() throws Exception {}
     }
 }

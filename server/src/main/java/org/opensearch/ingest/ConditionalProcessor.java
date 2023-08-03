@@ -32,7 +32,6 @@
 
 package org.opensearch.ingest;
 
-import org.opensearch.common.metrics.OperationMetrics;
 import org.opensearch.script.IngestConditionalScript;
 import org.opensearch.script.Script;
 import org.opensearch.script.ScriptException;
@@ -67,7 +66,7 @@ public class ConditionalProcessor extends AbstractProcessor implements WrappingP
     private final Script condition;
     private final ScriptService scriptService;
     private final Processor processor;
-    private final OperationMetrics metric;
+    private final IngestMetric metric;
     private final LongSupplier relativeTimeProvider;
     private final IngestConditionalScript precompiledConditionScript;
 
@@ -87,7 +86,7 @@ public class ConditionalProcessor extends AbstractProcessor implements WrappingP
         this.condition = script;
         this.scriptService = scriptService;
         this.processor = processor;
-        this.metric = new OperationMetrics();
+        this.metric = new IngestMetric();
         this.relativeTimeProvider = relativeTimeProvider;
 
         try {
@@ -115,12 +114,12 @@ public class ConditionalProcessor extends AbstractProcessor implements WrappingP
 
         if (matches) {
             final long startTimeInNanos = relativeTimeProvider.getAsLong();
-            metric.before();
+            metric.preIngest();
             processor.execute(ingestDocument, (result, e) -> {
                 long ingestTimeInMillis = TimeUnit.NANOSECONDS.toMillis(relativeTimeProvider.getAsLong() - startTimeInNanos);
-                metric.after(ingestTimeInMillis);
+                metric.postIngest(ingestTimeInMillis);
                 if (e != null) {
-                    metric.failed();
+                    metric.ingestFailed();
                     handler.accept(null, e);
                 } else {
                     handler.accept(result, null);
@@ -149,7 +148,7 @@ public class ConditionalProcessor extends AbstractProcessor implements WrappingP
         return processor;
     }
 
-    OperationMetrics getMetric() {
+    IngestMetric getMetric() {
         return metric;
     }
 

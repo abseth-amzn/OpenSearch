@@ -32,6 +32,7 @@
 
 package org.opensearch.search.scroll;
 
+import com.carrotsearch.hppc.IntHashSet;
 import com.carrotsearch.randomizedtesting.generators.RandomPicks;
 
 import org.opensearch.action.index.IndexRequestBuilder;
@@ -48,8 +49,6 @@ import org.opensearch.search.sort.SortOrder;
 import org.opensearch.test.OpenSearchIntegTestCase;
 
 import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
 
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.opensearch.test.hamcrest.OpenSearchAssertions.assertAcked;
@@ -146,7 +145,7 @@ public class DuelScrollIT extends OpenSearchIntegTestCase {
         boolean unevenRouting = randomBoolean();
 
         int numMissingDocs = scaledRandomIntBetween(0, numDocs / 100);
-        final Set<Integer> missingDocs = new HashSet<>(numMissingDocs);
+        IntHashSet missingDocs = new IntHashSet(numMissingDocs);
         for (int i = 0; i < numMissingDocs; i++) {
             while (!missingDocs.add(randomInt(numDocs))) {
             }

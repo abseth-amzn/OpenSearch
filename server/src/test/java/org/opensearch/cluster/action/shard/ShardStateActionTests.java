@@ -51,11 +51,11 @@ import org.opensearch.cluster.routing.ShardsIterator;
 import org.opensearch.cluster.routing.allocation.AllocationService;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.SetOnce;
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.Writeable;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.transport.CapturingTransport;
 import org.opensearch.threadpool.TestThreadPool;
@@ -64,7 +64,7 @@ import org.opensearch.transport.NodeDisconnectedException;
 import org.opensearch.transport.NodeNotConnectedException;
 import org.opensearch.transport.TransportException;
 import org.opensearch.transport.TransportRequest;
-import org.opensearch.core.transport.TransportResponse;
+import org.opensearch.transport.TransportResponse;
 import org.opensearch.transport.TransportService;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -505,7 +505,7 @@ public class ShardStateActionTests extends OpenSearchTestCase {
         shardStateAction.setOnBeforeWaitForNewClusterManagerAndRetry(() -> {
             DiscoveryNodes.Builder clusterManagerBuilder = DiscoveryNodes.builder(clusterService.state().nodes());
             clusterManagerBuilder.clusterManagerNodeId(
-                clusterService.state().nodes().getClusterManagerNodes().values().iterator().next().getId()
+                clusterService.state().nodes().getClusterManagerNodes().iterator().next().value.getId()
             );
             setState(clusterService, ClusterState.builder(clusterService.state()).nodes(clusterManagerBuilder));
         });

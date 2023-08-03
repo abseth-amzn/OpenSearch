@@ -63,10 +63,11 @@ import org.opensearch.cluster.routing.allocation.decider.NodeVersionAllocationDe
 import org.opensearch.cluster.routing.allocation.decider.ReplicaAfterPrimaryActiveAllocationDecider;
 import org.opensearch.cluster.routing.allocation.decider.ThrottlingAllocationDecider;
 import org.opensearch.common.UUIDs;
+import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.set.Sets;
-import org.opensearch.core.index.Index;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.Index;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.repositories.IndexId;
 import org.opensearch.snapshots.EmptySnapshotsInfoService;
 import org.opensearch.snapshots.InternalSnapshotsInfoService;
@@ -79,9 +80,7 @@ import org.opensearch.test.gateway.TestGatewayAllocator;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.shuffle;
@@ -489,7 +488,9 @@ public class NodeVersionAllocationDeciderTests extends OpenSearchAllocationTestC
         }
         Metadata metadata = Metadata.builder().put(indexMetadata).build();
 
-        final Map<InternalSnapshotsInfoService.SnapshotShard, Long> snapshotShardSizes = new HashMap<>(numberOfShards);
+        final ImmutableOpenMap.Builder<InternalSnapshotsInfoService.SnapshotShard, Long> snapshotShardSizes = ImmutableOpenMap.builder(
+            numberOfShards
+        );
         final Index index = metadata.index("test").getIndex();
         for (int i = 0; i < numberOfShards; i++) {
             final ShardId shardId = new ShardId(index, i);
@@ -516,7 +517,7 @@ public class NodeVersionAllocationDeciderTests extends OpenSearchAllocationTestC
             new TestGatewayAllocator(),
             new BalancedShardsAllocator(Settings.EMPTY),
             EmptyClusterInfoService.INSTANCE,
-            () -> new SnapshotShardSizeInfo(snapshotShardSizes)
+            () -> new SnapshotShardSizeInfo(snapshotShardSizes.build())
         );
         state = strategy.reroute(state, new AllocationCommands(), true, false).getClusterState();
 

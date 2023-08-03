@@ -32,10 +32,12 @@
 
 package org.opensearch.tasks;
 
+import com.carrotsearch.hppc.ObjectIntHashMap;
+import com.carrotsearch.hppc.ObjectIntMap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.opensearch.core.Assertions;
+import org.opensearch.Assertions;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.OpenSearchException;
 import org.opensearch.OpenSearchTimeoutException;
@@ -47,17 +49,18 @@ import org.opensearch.cluster.ClusterStateApplier;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.common.SetOnce;
+import org.opensearch.common.lease.Releasable;
+import org.opensearch.common.lease.Releasables;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.common.unit.ByteSizeValue;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.AbstractRunnable;
 import org.opensearch.common.util.concurrent.ConcurrentCollections;
 import org.opensearch.common.util.concurrent.ConcurrentMapLong;
 import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.common.lease.Releasable;
-import org.opensearch.common.lease.Releasables;
+import org.opensearch.tasks.consumer.TopNSearchTasksLogger;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TcpChannel;
 
@@ -66,7 +69,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -78,6 +80,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static org.opensearch.common.unit.TimeValue.timeValueMillis;
 import static org.opensearch.http.HttpTransportSettings.SETTING_HTTP_MAX_HEADER_SIZE;
@@ -128,7 +131,6 @@ public class TaskManager implements ClusterStateApplier {
 
     private volatile boolean taskResourceConsumersEnabled;
     private final Set<Consumer<Task>> taskResourceConsumer;
-    private final List<TaskEventListeners> taskEventListeners = new ArrayList<>();
 
     public static TaskManager createTaskManagerWithClusterSettings(
         Settings settings,
@@ -146,24 +148,7 @@ public class TaskManager implements ClusterStateApplier {
         this.taskHeaders = new ArrayList<>(taskHeaders);
         this.maxHeaderSize = SETTING_HTTP_MAX_HEADER_SIZE.get(settings);
         this.taskResourceConsumersEnabled = TASK_RESOURCE_CONSUMERS_ENABLED.get(settings);
-        taskResourceConsumer = new HashSet<>();
-    }
-
-    /**
-     * Listener that gets invoked during an event such as task cancellation/completion.
-     */
-    public interface TaskEventListeners {
-        default void onTaskCancelled(CancellableTask task) {}
-
-        default void onTaskCompleted(Task task) {}
-    }
-
-    public void addTaskEventListeners(TaskEventListeners taskEventListeners) {
-        this.taskEventListeners.add(taskEventListeners);
-    }
-
-    public void registerTaskResourceConsumer(Consumer<Task> consumer) {
-        taskResourceConsumer.add(consumer);
+        this.taskResourceConsumer = Set.of(new TopNSearchTasksLogger(settings));
     }
 
     public void setTaskResultsService(TaskResultsService taskResultsService) {
@@ -271,17 +256,6 @@ public class TaskManager implements ClusterStateApplier {
      */
     public void cancel(CancellableTask task, String reason, Runnable listener) {
         CancellableTaskHolder holder = cancellableTasks.get(task.getId());
-        List<Exception> exceptions = new ArrayList<>();
-        for (TaskEventListeners taskEventListener : taskEventListeners) {
-            try {
-                taskEventListener.onTaskCancelled(task);
-            } catch (Exception e) {
-                exceptions.add(e);
-            }
-        }
-        // Throwing exception in case any of the cancellation listener results into exception.
-        // Should we just swallow such exceptions?
-        ExceptionsHelper.maybeThrowRuntimeAndSuppress(exceptions);
         if (holder != null) {
             logger.trace("cancelling task with id {}", task.getId());
             holder.cancel(reason, listener);
@@ -295,15 +269,6 @@ public class TaskManager implements ClusterStateApplier {
      */
     public Task unregister(Task task) {
         logger.trace("unregister task for id: {}", task.getId());
-        List<Exception> exceptions = new ArrayList<>();
-        for (TaskEventListeners taskEventListener : taskEventListeners) {
-            try {
-                taskEventListener.onTaskCompleted(task);
-            } catch (Exception e) {
-                exceptions.add(e);
-            }
-        }
-        ExceptionsHelper.maybeThrowRuntimeAndSuppress(exceptions);
 
         // Decrement the task's self-thread as part of unregistration.
         task.decrementResourceTrackingThreads();
@@ -581,7 +546,7 @@ public class TaskManager implements ClusterStateApplier {
         private final CancellableTask task;
         private boolean finished = false;
         private List<Runnable> cancellationListeners = null;
-        private Map<DiscoveryNode, Integer> childTasksPerNode = null;
+        private ObjectIntMap<DiscoveryNode> childTasksPerNode = null;
         private boolean banChildren = false;
         private List<Runnable> childTaskCompletedListeners = null;
 
@@ -663,15 +628,15 @@ public class TaskManager implements ClusterStateApplier {
                 throw new TaskCancelledException("The parent task was cancelled, shouldn't start any child tasks");
             }
             if (childTasksPerNode == null) {
-                childTasksPerNode = new HashMap<>();
+                childTasksPerNode = new ObjectIntHashMap<>();
             }
-            childTasksPerNode.merge(node, 1, Integer::sum);
+            childTasksPerNode.addTo(node, 1);
         }
 
         void unregisterChildNode(DiscoveryNode node) {
             final List<Runnable> listeners;
             synchronized (this) {
-                if (childTasksPerNode.merge(node, -1, Integer::sum) == 0) {
+                if (childTasksPerNode.addTo(node, -1) == 0) {
                     childTasksPerNode.remove(node);
                 }
                 if (childTasksPerNode.isEmpty() && this.childTaskCompletedListeners != null) {
@@ -692,7 +657,9 @@ public class TaskManager implements ClusterStateApplier {
                 if (childTasksPerNode == null) {
                     pendingChildNodes = Collections.emptySet();
                 } else {
-                    pendingChildNodes = Set.copyOf(childTasksPerNode.keySet());
+                    pendingChildNodes = StreamSupport.stream(childTasksPerNode.spliterator(), false)
+                        .map(e -> e.key)
+                        .collect(Collectors.toSet());
                 }
                 if (pendingChildNodes.isEmpty()) {
                     assert childTaskCompletedListeners == null;

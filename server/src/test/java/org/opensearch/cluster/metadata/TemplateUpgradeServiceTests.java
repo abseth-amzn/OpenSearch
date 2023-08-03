@@ -46,8 +46,9 @@ import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodeRole;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.core.common.bytes.BytesArray;
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.bytes.BytesArray;
+import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.test.OpenSearchTestCase;
@@ -344,7 +345,7 @@ public class TemplateUpgradeServiceTests extends OpenSearchTestCase {
 
             @Override
             Optional<Tuple<Map<String, BytesReference>, Set<String>>> calculateTemplateChanges(
-                final Map<String, IndexTemplateMetadata> templates
+                ImmutableOpenMap<String, IndexTemplateMetadata> templates
             ) {
                 final Optional<Tuple<Map<String, BytesReference>, Set<String>>> ans = super.calculateTemplateChanges(templates);
                 calculateInvocation.release();

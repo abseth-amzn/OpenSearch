@@ -71,7 +71,6 @@ public class NodeInfoTests extends OpenSearchTestCase {
             null,
             null,
             null,
-            null,
             null
         );
 

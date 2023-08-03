@@ -8,12 +8,11 @@
 
 package org.opensearch.extensions.rest;
 
-import org.opensearch.action.ActionModule.DynamicActionRegistry;
 import org.opensearch.extensions.AcknowledgedResponse;
 import org.opensearch.extensions.DiscoveryExtensionNode;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
-import org.opensearch.core.transport.TransportResponse;
+import org.opensearch.transport.TransportResponse;
 import org.opensearch.transport.TransportService;
 
 import java.util.Map;
@@ -53,17 +52,9 @@ public class RestActionsRequestHandler {
      * @return A {@link AcknowledgedResponse} indicating success.
      * @throws Exception if the request is not handled properly.
      */
-    public TransportResponse handleRegisterRestActionsRequest(
-        RegisterRestActionsRequest restActionsRequest,
-        DynamicActionRegistry dynamicActionRegistry
-    ) throws Exception {
+    public TransportResponse handleRegisterRestActionsRequest(RegisterRestActionsRequest restActionsRequest) throws Exception {
         DiscoveryExtensionNode discoveryExtensionNode = extensionIdMap.get(restActionsRequest.getUniqueId());
-        RestHandler handler = new RestSendToExtensionAction(
-            restActionsRequest,
-            discoveryExtensionNode,
-            transportService,
-            dynamicActionRegistry
-        );
+        RestHandler handler = new RestSendToExtensionAction(restActionsRequest, discoveryExtensionNode, transportService);
         restController.registerHandler(handler);
         return new AcknowledgedResponse(true);
     }

@@ -39,26 +39,26 @@ import org.opensearch.Version;
 import org.opensearch.common.Booleans;
 import org.opensearch.common.SetOnce;
 import org.opensearch.common.Strings;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.logging.DeprecationLogger;
 import org.opensearch.common.logging.LogConfigurator;
-import org.opensearch.core.common.unit.ByteSizeUnit;
-import org.opensearch.core.common.unit.ByteSizeValue;
+import org.opensearch.common.unit.ByteSizeUnit;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.MemorySizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
-import org.opensearch.core.xcontent.MediaTypeRegistry;
-import org.opensearch.core.xcontent.XContentParserUtils;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentParserUtils;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.common.settings.SecureString;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContentFragment;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.common.util.io.IOUtils;
+import org.opensearch.core.internal.io.IOUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -88,7 +88,7 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.opensearch.core.common.unit.ByteSizeValue.parseBytesSizeValue;
+import static org.opensearch.common.unit.ByteSizeValue.parseBytesSizeValue;
 import static org.opensearch.common.unit.TimeValue.parseTimeValue;
 
 /**
@@ -426,7 +426,7 @@ public final class Settings implements ToXContentFragment {
             if (valueFromPrefix instanceof List) {
                 return Collections.unmodifiableList((List<String>) valueFromPrefix);
             } else if (commaDelimited) {
-                String[] strings = org.opensearch.core.common.Strings.splitStringByCommaToArray(get(key));
+                String[] strings = Strings.splitStringByCommaToArray(get(key));
                 if (strings.length > 0) {
                     for (String string : strings) {
                         result.add(string.trim());
@@ -454,7 +454,7 @@ public final class Settings implements ToXContentFragment {
      * Returns group settings for the given setting prefix.
      */
     public Map<String, Settings> getGroups(String settingPrefix, boolean ignoreNonGrouped) throws SettingsException {
-        if (!org.opensearch.core.common.Strings.hasLength(settingPrefix)) {
+        if (!Strings.hasLength(settingPrefix)) {
             throw new IllegalArgumentException("illegal setting prefix " + settingPrefix);
         }
         if (settingPrefix.charAt(settingPrefix.length() - 1) != '.') {
@@ -1081,7 +1081,7 @@ public final class Settings implements ToXContentFragment {
          */
         public Builder loadFromMap(Map<String, ?> map) {
             // TODO: do this without a serialization round-trip
-            try (XContentBuilder builder = MediaTypeRegistry.contentBuilder(XContentType.JSON)) {
+            try (XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON)) {
                 builder.map(map);
                 return loadFromSource(Strings.toString(builder), builder.contentType());
             } catch (IOException e) {
@@ -1094,7 +1094,7 @@ public final class Settings implements ToXContentFragment {
          */
         public Builder loadFromSource(String source, MediaType xContentType) {
             try (
-                XContentParser parser = xContentType.xContent()
+                XContentParser parser = XContentFactory.xContent(xContentType)
                     .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, source)
             ) {
                 this.put(fromXContent(parser, true, true));
@@ -1127,7 +1127,7 @@ public final class Settings implements ToXContentFragment {
             }
             // fromXContent doesn't use named xcontent or deprecation.
             try (
-                XContentParser parser = xContentType.xContent()
+                XContentParser parser = XContentFactory.xContent(xContentType)
                     .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, is)
             ) {
                 if (parser.currentToken() == null) {
@@ -1207,7 +1207,7 @@ public final class Settings implements ToXContentFragment {
                 String value = propertyPlaceholder.replacePlaceholders(Settings.toString(entry.getValue()), placeholderResolver);
                 // if the values exists and has length, we should maintain it in the map
                 // otherwise, the replace process resolved into removing it
-                if (org.opensearch.core.common.Strings.hasLength(value)) {
+                if (Strings.hasLength(value)) {
                     entry.setValue(value);
                 } else {
                     entryItr.remove();

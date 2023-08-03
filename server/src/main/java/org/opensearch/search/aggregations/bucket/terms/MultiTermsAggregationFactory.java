@@ -68,11 +68,6 @@ public class MultiTermsAggregationFactory extends AggregatorFactory {
                         longFilter = includeExclude.convertToDoubleFilter();
                     }
                     return MultiTermsAggregator.InternalValuesSourceFactory.doubleValueSource(valuesSource, longFilter);
-                } else if (valuesSource.isBigInteger()) {
-                    if (includeExclude != null) {
-                        longFilter = includeExclude.convertToDoubleFilter();
-                    }
-                    return MultiTermsAggregator.InternalValuesSourceFactory.unsignedLongValuesSource(valuesSource, longFilter);
                 } else {
                     if (includeExclude != null) {
                         longFilter = includeExclude.convertToLongFilter(valuesSourceConfig.format());

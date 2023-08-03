@@ -31,21 +31,18 @@
 
 package org.opensearch.rest.action.admin.indices;
 
-import java.util.List;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionType;
-import org.opensearch.action.ActionModule.DynamicActionRegistry;
 import org.opensearch.action.admin.indices.validate.query.ValidateQueryAction;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.TransportAction;
 import org.opensearch.client.node.NodeClient;
-import org.opensearch.core.common.bytes.BytesArray;
-import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.common.bytes.BytesArray;
+import org.opensearch.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.identity.IdentityService;
-import org.opensearch.core.indices.breaker.NoneCircuitBreakerService;
+import org.opensearch.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.AbstractSearchTestCase;
@@ -75,15 +72,7 @@ public class RestValidateQueryActionTests extends AbstractSearchTestCase {
     private static NodeClient client = new NodeClient(Settings.EMPTY, threadPool);
 
     private static UsageService usageService = new UsageService();
-    private static IdentityService identityService = new IdentityService(Settings.EMPTY, List.of());
-    private static RestController controller = new RestController(
-        emptySet(),
-        null,
-        client,
-        new NoneCircuitBreakerService(),
-        usageService,
-        identityService
-    );
+    private static RestController controller = new RestController(emptySet(), null, client, new NoneCircuitBreakerService(), usageService);
     private static RestValidateQueryAction action = new RestValidateQueryAction();
 
     /**
@@ -95,7 +84,7 @@ public class RestValidateQueryActionTests extends AbstractSearchTestCase {
     public static void stubValidateQueryAction() {
         final TaskManager taskManager = new TaskManager(Settings.EMPTY, threadPool, Collections.emptySet());
 
-        final TransportAction<?, ?> transportAction = new TransportAction<>(
+        final TransportAction transportAction = new TransportAction(
             ValidateQueryAction.NAME,
             new ActionFilters(Collections.emptySet()),
             taskManager
@@ -107,9 +96,7 @@ public class RestValidateQueryActionTests extends AbstractSearchTestCase {
         final Map<ActionType, TransportAction> actions = new HashMap<>();
         actions.put(ValidateQueryAction.INSTANCE, transportAction);
 
-        DynamicActionRegistry dynamicActionRegistry = new DynamicActionRegistry();
-        dynamicActionRegistry.registerUnmodifiableActionMap(actions);
-        client.initialize(dynamicActionRegistry, () -> "local", null, new NamedWriteableRegistry(Collections.emptyList()));
+        client.initialize(actions, () -> "local", null, new NamedWriteableRegistry(Collections.emptyList()));
         controller.registerHandler(action);
     }
 

@@ -22,7 +22,6 @@ import org.opensearch.common.blobstore.BlobPath;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.shard.ShardPath;
 import org.opensearch.index.snapshots.blobstore.BlobStoreIndexShardSnapshot;
-import org.opensearch.index.snapshots.blobstore.IndexShardSnapshot;
 import org.opensearch.index.store.remote.filecache.FileCache;
 import org.opensearch.index.store.remote.utils.TransferManager;
 import org.opensearch.plugins.IndexStorePlugin;
@@ -90,10 +89,7 @@ public final class RemoteSnapshotDirectoryFactory implements IndexStorePlugin.Di
         // index restore is invoked
         return threadPool.executor(ThreadPool.Names.SNAPSHOT).submit(() -> {
             final BlobContainer blobContainer = blobStoreRepository.blobStore().blobContainer(blobPath);
-            final IndexShardSnapshot indexShardSnapshot = blobStoreRepository.loadShardSnapshot(blobContainer, snapshotId);
-            assert indexShardSnapshot instanceof BlobStoreIndexShardSnapshot
-                : "indexShardSnapshot should be an instance of BlobStoreIndexShardSnapshot";
-            final BlobStoreIndexShardSnapshot snapshot = (BlobStoreIndexShardSnapshot) indexShardSnapshot;
+            final BlobStoreIndexShardSnapshot snapshot = blobStoreRepository.loadShardSnapshot(blobContainer, snapshotId);
             TransferManager transferManager = new TransferManager(blobContainer, remoteStoreFileCache);
             return new RemoteSnapshotDirectory(snapshot, localStoreDir, transferManager);
         });

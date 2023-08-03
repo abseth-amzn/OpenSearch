@@ -45,7 +45,6 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.TreeSet;
 
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.core.StringContains.containsString;
 
 public class DistributionDownloadPluginTests extends GradleUnitTestCase {
@@ -77,14 +76,7 @@ public class DistributionDownloadPluginTests extends GradleUnitTestCase {
     );
 
     public void testVersionDefault() {
-        OpenSearchDistribution distro = checkDistro(
-            createProject(null, false),
-            "testdistro",
-            null,
-            Type.ARCHIVE,
-            Platform.LINUX,
-            JavaPackageType.JDK
-        );
+        OpenSearchDistribution distro = checkDistro(createProject(null, false), "testdistro", null, Type.ARCHIVE, Platform.LINUX, true);
         assertEquals(distro.getVersion(), VersionProperties.getOpenSearch());
     }
 
@@ -131,32 +123,18 @@ public class DistributionDownloadPluginTests extends GradleUnitTestCase {
             "badversion",
             Type.ARCHIVE,
             Platform.LINUX,
-            JavaPackageType.JDK,
+            true,
             "Invalid version format: 'badversion'"
         );
     }
 
     public void testTypeDefault() {
-        OpenSearchDistribution distro = checkDistro(
-            createProject(null, false),
-            "testdistro",
-            "5.0.0",
-            null,
-            Platform.LINUX,
-            JavaPackageType.JDK
-        );
+        OpenSearchDistribution distro = checkDistro(createProject(null, false), "testdistro", "5.0.0", null, Platform.LINUX, true);
         assertEquals(distro.getType(), Type.ARCHIVE);
     }
 
     public void testPlatformDefault() {
-        OpenSearchDistribution distro = checkDistro(
-            createProject(null, false),
-            "testdistro",
-            "5.0.0",
-            Type.ARCHIVE,
-            null,
-            JavaPackageType.JDK
-        );
+        OpenSearchDistribution distro = checkDistro(createProject(null, false), "testdistro", "5.0.0", Type.ARCHIVE, null, true);
         assertEquals(distro.getPlatform(), OpenSearchDistribution.CURRENT_PLATFORM);
     }
 
@@ -173,15 +151,8 @@ public class DistributionDownloadPluginTests extends GradleUnitTestCase {
     }
 
     public void testBundledJdkDefault() {
-        OpenSearchDistribution distro = checkDistro(
-            createProject(null, false),
-            "testdistro",
-            "5.0.0",
-            Type.ARCHIVE,
-            Platform.LINUX,
-            JavaPackageType.JDK
-        );
-        assertThat(distro.getBundledJdk(), equalTo(JavaPackageType.JDK));
+        OpenSearchDistribution distro = checkDistro(createProject(null, false), "testdistro", "5.0.0", Type.ARCHIVE, Platform.LINUX, true);
+        assertTrue(distro.getBundledJdk());
     }
 
     public void testBundledJdkForIntegTest() {
@@ -191,7 +162,7 @@ public class DistributionDownloadPluginTests extends GradleUnitTestCase {
             "5.0.0",
             Type.INTEG_TEST_ZIP,
             null,
-            JavaPackageType.JDK,
+            true,
             "bundledJdk cannot be set on opensearch distribution [testdistro]"
         );
     }
@@ -207,7 +178,7 @@ public class DistributionDownloadPluginTests extends GradleUnitTestCase {
 
     public void testLocalCurrentVersionArchives() {
         for (Platform platform : Platform.values()) {
-            for (JavaPackageType bundledJdk : JavaPackageType.values()) {
+            for (boolean bundledJdk : new boolean[] { true, false }) {
                 for (Architecture architecture : Architecture.values()) {
                     // create a new project in each iteration, so that we know we are resolving the only additional project being created
                     Project project = createProject(BWC_MINOR, true);
@@ -233,7 +204,7 @@ public class DistributionDownloadPluginTests extends GradleUnitTestCase {
 
     public void testLocalCurrentVersionPackages() {
         for (Type packageType : new Type[] { Type.RPM, Type.DEB }) {
-            for (JavaPackageType bundledJdk : JavaPackageType.values()) {
+            for (boolean bundledJdk : new boolean[] { true, false }) {
                 Project project = createProject(BWC_MINOR, true);
                 String projectName = projectName(packageType.toString(), bundledJdk);
                 Project packageProject = ProjectBuilder.builder().withParent(packagesProject).withName(projectName).build();
@@ -248,7 +219,7 @@ public class DistributionDownloadPluginTests extends GradleUnitTestCase {
     public void testLocalBwcArchives() {
         for (Platform platform : Platform.values()) {
             // note: no non bundled jdk for bwc
-            String configName = projectName(platform.toString(), JavaPackageType.JDK);
+            String configName = projectName(platform.toString(), true);
             configName += (platform == Platform.WINDOWS ? "-zip" : "-tar");
 
             checkBwc("minor", configName, BWC_MINOR_VERSION, Type.ARCHIVE, platform, BWC_MINOR, true);
@@ -261,7 +232,7 @@ public class DistributionDownloadPluginTests extends GradleUnitTestCase {
     public void testLocalBwcPackages() {
         for (Type packageType : new Type[] { Type.RPM, Type.DEB }) {
             // note: no non bundled jdk for bwc
-            String configName = projectName(packageType.toString(), JavaPackageType.JDK);
+            String configName = projectName(packageType.toString(), true);
 
             checkBwc("minor", configName, BWC_MINOR_VERSION, packageType, null, BWC_MINOR, true);
             checkBwc("staged", configName, BWC_STAGED_VERSION, packageType, null, BWC_STAGED, true);
@@ -276,7 +247,7 @@ public class DistributionDownloadPluginTests extends GradleUnitTestCase {
         String version,
         Type type,
         Platform platform,
-        JavaPackageType bundledJdk,
+        Boolean bundledJdk,
         String message
     ) {
         IllegalArgumentException e = expectThrows(
@@ -292,7 +263,7 @@ public class DistributionDownloadPluginTests extends GradleUnitTestCase {
         String version,
         Type type,
         Platform platform,
-        JavaPackageType bundledJdk
+        Boolean bundledJdk
     ) {
         NamedDomainObjectContainer<OpenSearchDistribution> distros = DistributionDownloadPlugin.getContainer(project);
         return distros.create(name, distro -> {
@@ -318,7 +289,7 @@ public class DistributionDownloadPluginTests extends GradleUnitTestCase {
         String version,
         Type type,
         Platform platform,
-        JavaPackageType bundledJdk
+        Boolean bundledJdk
     ) {
         OpenSearchDistribution distribution = createDistro(project, name, version, type, platform, bundledJdk);
         distribution.finalizeValues();
@@ -344,7 +315,7 @@ public class DistributionDownloadPluginTests extends GradleUnitTestCase {
         Project archiveProject = ProjectBuilder.builder().withParent(bwcProject).withName(projectName).build();
         archiveProject.getConfigurations().create(config);
         archiveProject.getArtifacts().add(config, new File("doesnotmatter"));
-        final OpenSearchDistribution distro = createDistro(project, "distro", version.toString(), type, platform, JavaPackageType.JDK);
+        final OpenSearchDistribution distro = createDistro(project, "distro", version.toString(), type, platform, true);
         distro.setArchitecture(Architecture.current());
         checkPlugin(project);
     }
@@ -364,7 +335,7 @@ public class DistributionDownloadPluginTests extends GradleUnitTestCase {
         return project;
     }
 
-    private static String projectName(String base, JavaPackageType bundledJdk) {
-        return (bundledJdk == JavaPackageType.JDK) ? base : ((bundledJdk == JavaPackageType.NONE) ? ("no-jdk-" + base) : "jre-" + base);
+    private static String projectName(String base, boolean bundledJdk) {
+        return bundledJdk ? base : ("no-jdk-" + base);
     }
 }

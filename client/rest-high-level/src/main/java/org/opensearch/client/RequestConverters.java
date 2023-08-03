@@ -72,14 +72,14 @@ import org.opensearch.client.tasks.TaskId;
 import org.opensearch.cluster.health.ClusterHealthStatus;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.Priority;
+import org.opensearch.common.Strings;
 import org.opensearch.common.SuppressForbidden;
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.CollectionUtils;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.common.Strings;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
@@ -157,7 +157,7 @@ final class RequestConverters {
         // Bulk API only supports newline delimited JSON or Smile. Before executing
         // the bulk, we need to check that all requests have the same content-type
         // and this content-type is supported by the Bulk API.
-        MediaType bulkContentType = null;
+        XContentType bulkContentType = null;
         for (int i = 0; i < bulkRequest.numberOfActions(); i++) {
             DocWriteRequest<?> action = bulkRequest.requests().get(i);
 
@@ -245,7 +245,7 @@ final class RequestConverters {
             if (opType == DocWriteRequest.OpType.INDEX || opType == DocWriteRequest.OpType.CREATE) {
                 IndexRequest indexRequest = (IndexRequest) action;
                 BytesReference indexSource = indexRequest.source();
-                MediaType mediaType = indexRequest.getContentType();
+                XContentType indexXContentType = indexRequest.getContentType();
 
                 try (
                     XContentParser parser = XContentHelper.createParser(
@@ -257,7 +257,7 @@ final class RequestConverters {
                         NamedXContentRegistry.EMPTY,
                         DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
                         indexSource,
-                        mediaType
+                        indexXContentType
                     )
                 ) {
                     try (XContentBuilder builder = XContentBuilder.builder(bulkContentType.xContent())) {
@@ -266,7 +266,7 @@ final class RequestConverters {
                     }
                 }
             } else if (opType == DocWriteRequest.OpType.UPDATE) {
-                source = XContentHelper.toXContent((UpdateRequest) action, bulkContentType, ToXContent.EMPTY_PARAMS, false).toBytesRef();
+                source = XContentHelper.toXContent((UpdateRequest) action, bulkContentType, false).toBytesRef();
             }
 
             if (source != null) {
@@ -392,30 +392,30 @@ final class RequestConverters {
         // set for the partial document and the upsert document. This client
         // only accepts update requests that have the same content types set
         // for both doc and upsert.
-        MediaType mediaType = null;
+        XContentType xContentType = null;
         if (updateRequest.doc() != null) {
-            mediaType = updateRequest.doc().getContentType();
+            xContentType = updateRequest.doc().getContentType();
         }
         if (updateRequest.upsertRequest() != null) {
-            MediaType upsertContentType = updateRequest.upsertRequest().getContentType();
-            if ((mediaType != null) && (mediaType != upsertContentType)) {
+            XContentType upsertContentType = updateRequest.upsertRequest().getContentType();
+            if ((xContentType != null) && (xContentType != upsertContentType)) {
                 throw new IllegalStateException(
                     "Update request cannot have different content types for doc ["
-                        + mediaType
+                        + xContentType
                         + "]"
                         + " and upsert ["
                         + upsertContentType
                         + "] documents"
                 );
             } else {
-                mediaType = upsertContentType;
+                xContentType = upsertContentType;
             }
         }
-        if (mediaType == null) {
-            mediaType = Requests.INDEX_CONTENT_TYPE;
+        if (xContentType == null) {
+            xContentType = Requests.INDEX_CONTENT_TYPE;
         }
         request.addParameters(parameters.asMap());
-        request.setEntity(createEntity(updateRequest, mediaType));
+        request.setEntity(createEntity(updateRequest, xContentType));
         return request;
     }
 
@@ -816,13 +816,14 @@ final class RequestConverters {
         return request;
     }
 
-    static HttpEntity createEntity(ToXContent toXContent, MediaType mediaType) throws IOException {
-        return createEntity(toXContent, mediaType, ToXContent.EMPTY_PARAMS);
+    static HttpEntity createEntity(ToXContent toXContent, XContentType xContentType) throws IOException {
+        return createEntity(toXContent, xContentType, ToXContent.EMPTY_PARAMS);
     }
 
-    static HttpEntity createEntity(ToXContent toXContent, MediaType mediaType, ToXContent.Params toXContentParams) throws IOException {
-        BytesRef source = XContentHelper.toXContent(toXContent, mediaType, toXContentParams, false).toBytesRef();
-        return new ByteArrayEntity(source.bytes, source.offset, source.length, createContentType(mediaType));
+    static HttpEntity createEntity(ToXContent toXContent, XContentType xContentType, ToXContent.Params toXContentParams)
+        throws IOException {
+        BytesRef source = XContentHelper.toXContent(toXContent, xContentType, toXContentParams, false).toBytesRef();
+        return new ByteArrayEntity(source.bytes, source.offset, source.length, createContentType(xContentType));
     }
 
     static String endpoint(String index, String id) {
@@ -865,6 +866,20 @@ final class RequestConverters {
     @Deprecated
     static String endpoint(String[] indices, String endpoint, String type) {
         return new EndpointBuilder().addCommaSeparatedPathParts(indices).addPathPartAsIs(endpoint).addPathPart(type).build();
+    }
+
+    /**
+     * Returns a {@link ContentType} from a given {@link XContentType}.
+     *
+     * @param xContentType the {@link XContentType}
+     * @return the {@link ContentType}
+     *
+     * @deprecated use {@link #createContentType(MediaType)} instead
+     */
+    @Deprecated
+    @SuppressForbidden(reason = "Only allowed place to convert a XContentType to a ContentType")
+    public static ContentType createContentType(final XContentType xContentType) {
+        return ContentType.create(xContentType.mediaTypeWithoutParameters(), (Charset) null);
     }
 
     /**
@@ -1250,8 +1265,8 @@ final class RequestConverters {
      *
      * @return the {@link IndexRequest}'s content type
      */
-    static MediaType enforceSameContentType(IndexRequest indexRequest, @Nullable MediaType mediaType) {
-        MediaType requestContentType = indexRequest.getContentType();
+    static XContentType enforceSameContentType(IndexRequest indexRequest, @Nullable XContentType xContentType) {
+        XContentType requestContentType = indexRequest.getContentType();
         if (requestContentType != XContentType.JSON && requestContentType != XContentType.SMILE) {
             throw new IllegalArgumentException(
                 "Unsupported content-type found for request with content-type ["
@@ -1259,19 +1274,19 @@ final class RequestConverters {
                     + "], only JSON and SMILE are supported"
             );
         }
-        if (mediaType == null) {
+        if (xContentType == null) {
             return requestContentType;
         }
-        if (requestContentType != mediaType) {
+        if (requestContentType != xContentType) {
             throw new IllegalArgumentException(
                 "Mismatching content-type found for request with content-type ["
                     + requestContentType
                     + "], previous requests have content-type ["
-                    + mediaType
+                    + xContentType
                     + "]"
             );
         }
-        return mediaType;
+        return xContentType;
     }
 
     /**

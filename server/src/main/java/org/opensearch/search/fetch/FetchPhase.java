@@ -48,11 +48,10 @@ import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.document.DocumentField;
 import org.opensearch.common.lucene.index.SequentialStoredFieldsLeafReader;
 import org.opensearch.common.lucene.search.Queries;
-import org.opensearch.core.common.text.Text;
+import org.opensearch.common.text.Text;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.common.xcontent.support.XContentMapValues;
-import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.fieldvisitor.CustomFieldsVisitor;
 import org.opensearch.index.fieldvisitor.FieldsVisitor;
@@ -160,7 +159,7 @@ public class FetchPhase {
                         SequentialStoredFieldsLeafReader lf = (SequentialStoredFieldsLeafReader) currentReaderContext.reader();
                         fieldReader = lf.getSequentialStoredFieldsReader()::document;
                     } else {
-                        fieldReader = currentReaderContext.reader().storedFields()::document;
+                        fieldReader = currentReaderContext.reader()::document;
                     }
                     for (FetchSubPhaseProcessor processor : processors) {
                         processor.setNextReader(currentReaderContext);
@@ -378,7 +377,7 @@ public class FetchPhase {
 
         String rootId;
         Map<String, Object> rootSourceAsMap = null;
-        MediaType rootSourceContentType = null;
+        XContentType rootSourceContentType = null;
 
         int nestedDocId = nestedTopDocId - subReaderContext.docBase;
 

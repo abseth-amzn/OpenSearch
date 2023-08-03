@@ -33,7 +33,6 @@
 package org.opensearch.common.util.concurrent;
 
 import org.opensearch.common.metrics.CounterMetric;
-import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;

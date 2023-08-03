@@ -36,22 +36,20 @@ import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.sandbox.index.MergeOnFlushMergePolicy;
 import org.opensearch.Version;
 import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.common.Strings;
 import org.opensearch.common.logging.Loggers;
 import org.opensearch.common.settings.IndexScopedSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Setting.Property;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.common.unit.ByteSizeUnit;
-import org.opensearch.core.common.unit.ByteSizeValue;
+import org.opensearch.common.unit.ByteSizeUnit;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.FeatureFlags;
-import org.opensearch.core.common.Strings;
-import org.opensearch.core.index.Index;
 import org.opensearch.index.translog.Translog;
 import org.opensearch.indices.replication.common.ReplicationType;
 import org.opensearch.ingest.IngestService;
 import org.opensearch.node.Node;
-import org.opensearch.search.pipeline.SearchPipelineService;
 
 import java.util.Collections;
 import java.util.List;
@@ -579,31 +577,6 @@ public final class IndexSettings {
         Property.InternalIndex
     );
 
-    public static final Setting<String> DEFAULT_SEARCH_PIPELINE = new Setting<>(
-        "index.search.default_pipeline",
-        SearchPipelineService.NOOP_PIPELINE_ID,
-        Function.identity(),
-        Property.Dynamic,
-        Property.IndexScope
-    );
-
-    public static final Setting<Boolean> INDEX_CONCURRENT_SEGMENT_SEARCH_SETTING = Setting.boolSetting(
-        "index.search.concurrent_segment_search.enabled",
-        false,
-        Property.IndexScope,
-        Property.Dynamic
-    );
-
-    public static final TimeValue DEFAULT_REMOTE_TRANSLOG_BUFFER_INTERVAL = new TimeValue(650, TimeUnit.MILLISECONDS);
-    public static final TimeValue MINIMUM_REMOTE_TRANSLOG_BUFFER_INTERVAL = TimeValue.ZERO;
-    public static final Setting<TimeValue> INDEX_REMOTE_TRANSLOG_BUFFER_INTERVAL_SETTING = Setting.timeSetting(
-        "index.remote_store.translog.buffer_interval",
-        DEFAULT_REMOTE_TRANSLOG_BUFFER_INTERVAL,
-        MINIMUM_REMOTE_TRANSLOG_BUFFER_INTERVAL,
-        Property.Dynamic,
-        Property.IndexScope
-    );
-
     private final Index index;
     private final Version version;
     private final Logger logger;
@@ -612,7 +585,8 @@ public final class IndexSettings {
     private final int numberOfShards;
     private final ReplicationType replicationType;
     private final boolean isRemoteStoreEnabled;
-    private volatile TimeValue remoteTranslogUploadBufferInterval;
+    private final boolean isRemoteTranslogStoreEnabled;
+    private final TimeValue remoteTranslogUploadBufferInterval;
     private final String remoteStoreTranslogRepository;
     private final String remoteStoreRepository;
     private final boolean isRemoteSnapshot;
@@ -643,8 +617,6 @@ public final class IndexSettings {
     private volatile long softDeleteRetentionOperations;
 
     private volatile long retentionLeaseMillis;
-
-    private volatile String defaultSearchPipeline;
 
     /**
      * The maximum age of a retention lease before it is considered expired.
@@ -778,11 +750,15 @@ public final class IndexSettings {
         nodeName = Node.NODE_NAME_SETTING.get(settings);
         this.indexMetadata = indexMetadata;
         numberOfShards = settings.getAsInt(IndexMetadata.SETTING_NUMBER_OF_SHARDS, null);
-        replicationType = IndexMetadata.INDEX_REPLICATION_TYPE_SETTING.get(settings);
+        replicationType = ReplicationType.parseString(settings.get(IndexMetadata.SETTING_REPLICATION_TYPE));
         isRemoteStoreEnabled = settings.getAsBoolean(IndexMetadata.SETTING_REMOTE_STORE_ENABLED, false);
+        isRemoteTranslogStoreEnabled = settings.getAsBoolean(IndexMetadata.SETTING_REMOTE_TRANSLOG_STORE_ENABLED, false);
         remoteStoreTranslogRepository = settings.get(IndexMetadata.SETTING_REMOTE_TRANSLOG_STORE_REPOSITORY);
-        remoteTranslogUploadBufferInterval = INDEX_REMOTE_TRANSLOG_BUFFER_INTERVAL_SETTING.get(settings);
-        remoteStoreRepository = settings.get(IndexMetadata.SETTING_REMOTE_SEGMENT_STORE_REPOSITORY);
+        remoteTranslogUploadBufferInterval = settings.getAsTime(
+            IndexMetadata.SETTING_REMOTE_TRANSLOG_BUFFER_INTERVAL,
+            TimeValue.timeValueMillis(100)
+        );
+        remoteStoreRepository = settings.get(IndexMetadata.SETTING_REMOTE_STORE_REPOSITORY);
         isRemoteSnapshot = IndexModule.Type.REMOTE_SNAPSHOT.match(this.settings);
 
         if (isRemoteSnapshot && FeatureFlags.isEnabled(SEARCHABLE_SNAPSHOT_EXTENDED_COMPATIBILITY)) {
@@ -839,7 +815,6 @@ public final class IndexSettings {
         maxFullFlushMergeWaitTime = scopedSettings.get(INDEX_MERGE_ON_FLUSH_MAX_FULL_FLUSH_MERGE_WAIT_TIME);
         mergeOnFlushEnabled = scopedSettings.get(INDEX_MERGE_ON_FLUSH_ENABLED);
         setMergeOnFlushPolicy(scopedSettings.get(INDEX_MERGE_ON_FLUSH_POLICY));
-        defaultSearchPipeline = scopedSettings.get(DEFAULT_SEARCH_PIPELINE);
 
         scopedSettings.addSettingsUpdateConsumer(MergePolicyConfig.INDEX_COMPOUND_FORMAT_SETTING, mergePolicyConfig::setNoCFSRatio);
         scopedSettings.addSettingsUpdateConsumer(
@@ -913,17 +888,9 @@ public final class IndexSettings {
         scopedSettings.addSettingsUpdateConsumer(INDEX_MERGE_ON_FLUSH_MAX_FULL_FLUSH_MERGE_WAIT_TIME, this::setMaxFullFlushMergeWaitTime);
         scopedSettings.addSettingsUpdateConsumer(INDEX_MERGE_ON_FLUSH_ENABLED, this::setMergeOnFlushEnabled);
         scopedSettings.addSettingsUpdateConsumer(INDEX_MERGE_ON_FLUSH_POLICY, this::setMergeOnFlushPolicy);
-        scopedSettings.addSettingsUpdateConsumer(DEFAULT_SEARCH_PIPELINE, this::setDefaultSearchPipeline);
-        scopedSettings.addSettingsUpdateConsumer(
-            INDEX_REMOTE_TRANSLOG_BUFFER_INTERVAL_SETTING,
-            this::setRemoteTranslogUploadBufferInterval
-        );
     }
 
     private void setSearchIdleAfter(TimeValue searchIdleAfter) {
-        if (this.replicationType == ReplicationType.SEGMENT && this.getNumberOfReplicas() > 0) {
-            logger.warn("Search idle is not supported for indices with replicas using 'replication.type: SEGMENT'");
-        }
         this.searchIdleAfter = searchIdleAfter;
     }
 
@@ -991,7 +958,7 @@ public final class IndexSettings {
      * Returns <code>true</code> if the index has a custom data path
      */
     public boolean hasCustomDataPath() {
-        return Strings.isEmpty(customDataPath()) == false;
+        return !Strings.isEmpty(customDataPath());
     }
 
     /**
@@ -1003,7 +970,7 @@ public final class IndexSettings {
 
     /**
      * Returns the version the index was created on.
-     * @see IndexMetadata#indexCreated(Settings)
+     * @see Version#indexCreated(Settings)
      */
     public Version getIndexVersionCreated() {
         return version;
@@ -1044,14 +1011,6 @@ public final class IndexSettings {
         return ReplicationType.SEGMENT.equals(replicationType);
     }
 
-    public boolean isSegRepLocalEnabled() {
-        return isSegRepEnabled() && !isSegRepWithRemoteEnabled();
-    }
-
-    public boolean isSegRepWithRemoteEnabled() {
-        return isSegRepEnabled() && isRemoteStoreEnabled() && FeatureFlags.isEnabled(FeatureFlags.SEGMENT_REPLICATION_EXPERIMENTAL);
-    }
-
     /**
      * Returns if remote store is enabled for this index.
      */
@@ -1063,9 +1022,7 @@ public final class IndexSettings {
      * Returns if remote translog store is enabled for this index.
      */
     public boolean isRemoteTranslogStoreEnabled() {
-        // Today enabling remote store automatically enables remote translog as well.
-        // which is why isRemoteStoreEnabled is used to represent isRemoteTranslogStoreEnabled
-        return isRemoteStoreEnabled;
+        return isRemoteTranslogStoreEnabled;
     }
 
     /**
@@ -1112,9 +1069,9 @@ public final class IndexSettings {
      */
     public synchronized boolean updateIndexMetadata(IndexMetadata indexMetadata) {
         final Settings newSettings = indexMetadata.getSettings();
-        if (version.equals(IndexMetadata.indexCreated(newSettings)) == false) {
+        if (version.equals(Version.indexCreated(newSettings)) == false) {
             throw new IllegalArgumentException(
-                "version mismatch on settings update expected: " + version + " but was: " + IndexMetadata.indexCreated(newSettings)
+                "version mismatch on settings update expected: " + version + " but was: " + Version.indexCreated(newSettings)
             );
         }
         final String newUUID = newSettings.get(IndexMetadata.SETTING_INDEX_UUID, IndexMetadata.INDEX_UUID_NA_VALUE);
@@ -1190,10 +1147,6 @@ public final class IndexSettings {
      */
     public TimeValue getRemoteTranslogUploadBufferInterval() {
         return remoteTranslogUploadBufferInterval;
-    }
-
-    public void setRemoteTranslogUploadBufferInterval(TimeValue remoteTranslogUploadBufferInterval) {
-        this.remoteTranslogUploadBufferInterval = remoteTranslogUploadBufferInterval;
     }
 
     /**
@@ -1604,13 +1557,5 @@ public final class IndexSettings {
 
     public Optional<UnaryOperator<MergePolicy>> getMergeOnFlushPolicy() {
         return Optional.ofNullable(mergeOnFlushPolicy);
-    }
-
-    public String getDefaultSearchPipeline() {
-        return defaultSearchPipeline;
-    }
-
-    public void setDefaultSearchPipeline(String defaultSearchPipeline) {
-        this.defaultSearchPipeline = defaultSearchPipeline;
     }
 }

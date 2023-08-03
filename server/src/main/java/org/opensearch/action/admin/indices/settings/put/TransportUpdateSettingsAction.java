@@ -48,8 +48,9 @@ import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.metadata.MetadataUpdateSettingsService;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.index.Index;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.util.FeatureFlags;
+import org.opensearch.index.Index;
 import org.opensearch.index.IndexModule;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
@@ -125,30 +126,38 @@ public class TransportUpdateSettingsAction extends TransportClusterManagerNodeAc
             return null;
         }
 
-        final Index[] requestIndices = indexNameExpressionResolver.concreteIndices(state, request);
-        boolean allowSearchableSnapshotSettingsUpdate = true;
-        // check if all indices in the request are remote snapshot
-        for (Index index : requestIndices) {
-            if (state.blocks().indexBlocked(ClusterBlockLevel.METADATA_WRITE, index.getName())) {
-                allowSearchableSnapshotSettingsUpdate = allowSearchableSnapshotSettingsUpdate
-                    && IndexModule.Type.REMOTE_SNAPSHOT.match(
-                        state.getMetadata().getIndexSafe(index).getSettings().get(INDEX_STORE_TYPE_SETTING.getKey())
+        if (FeatureFlags.isEnabled(FeatureFlags.SEARCHABLE_SNAPSHOT)) {
+            final Index[] requestIndices = indexNameExpressionResolver.concreteIndices(state, request);
+            boolean allowSearchableSnapshotSettingsUpdate = true;
+            // check if all indices in the request are remote snapshot
+            for (Index index : requestIndices) {
+                if (state.blocks().indexBlocked(ClusterBlockLevel.METADATA_WRITE, index.getName())) {
+                    allowSearchableSnapshotSettingsUpdate = allowSearchableSnapshotSettingsUpdate
+                        && IndexModule.Type.REMOTE_SNAPSHOT.match(
+                            state.getMetadata().getIndexSafe(index).getSettings().get(INDEX_STORE_TYPE_SETTING.getKey())
+                        );
+                }
+            }
+            // check if all settings in the request are in the allow list
+            if (allowSearchableSnapshotSettingsUpdate) {
+                for (String setting : request.settings().keySet()) {
+                    allowSearchableSnapshotSettingsUpdate = allowSearchableSnapshotSettingsUpdate
+                        && (ALLOWLIST_REMOTE_SNAPSHOT_SETTINGS.contains(setting)
+                            || Stream.of(ALLOWLIST_REMOTE_SNAPSHOT_SETTINGS_PREFIXES).anyMatch(setting::startsWith));
+                }
+            }
+
+            return allowSearchableSnapshotSettingsUpdate
+                ? null
+                : state.blocks()
+                    .indicesBlockedException(
+                        ClusterBlockLevel.METADATA_WRITE,
+                        indexNameExpressionResolver.concreteIndexNames(state, request)
                     );
-            }
-        }
-        // check if all settings in the request are in the allow list
-        if (allowSearchableSnapshotSettingsUpdate) {
-            for (String setting : request.settings().keySet()) {
-                allowSearchableSnapshotSettingsUpdate = allowSearchableSnapshotSettingsUpdate
-                    && (ALLOWLIST_REMOTE_SNAPSHOT_SETTINGS.contains(setting)
-                        || Stream.of(ALLOWLIST_REMOTE_SNAPSHOT_SETTINGS_PREFIXES).anyMatch(setting::startsWith));
-            }
         }
 
-        return allowSearchableSnapshotSettingsUpdate
-            ? null
-            : state.blocks()
-                .indicesBlockedException(ClusterBlockLevel.METADATA_WRITE, indexNameExpressionResolver.concreteIndexNames(state, request));
+        return state.blocks()
+            .indicesBlockedException(ClusterBlockLevel.METADATA_WRITE, indexNameExpressionResolver.concreteIndexNames(state, request));
     }
 
     @Override

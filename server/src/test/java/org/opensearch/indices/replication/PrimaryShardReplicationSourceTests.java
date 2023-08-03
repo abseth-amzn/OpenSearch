@@ -8,7 +8,6 @@
 
 package org.opensearch.indices.replication;
 
-import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.util.Version;
 import org.junit.Assert;
 import org.opensearch.action.ActionListener;
@@ -18,9 +17,10 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.CancellableThreads;
-import org.opensearch.common.util.io.IOUtils;
+import org.opensearch.core.internal.io.IOUtils;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.index.shard.IndexShardTestCase;
+import org.opensearch.index.store.Store;
 import org.opensearch.index.store.StoreFileMetadata;
 import org.opensearch.indices.recovery.RecoverySettings;
 import org.opensearch.indices.replication.checkpoint.ReplicationCheckpoint;
@@ -93,13 +93,7 @@ public class PrimaryShardReplicationSourceTests extends IndexShardTestCase {
     }
 
     public void testGetCheckpointMetadata() {
-        final ReplicationCheckpoint checkpoint = new ReplicationCheckpoint(
-            indexShard.shardId(),
-            PRIMARY_TERM,
-            SEGMENTS_GEN,
-            VERSION,
-            Codec.getDefault().getName()
-        );
+        final ReplicationCheckpoint checkpoint = new ReplicationCheckpoint(indexShard.shardId(), PRIMARY_TERM, SEGMENTS_GEN, VERSION);
         replicationSource.getCheckpointMetadata(REPLICATION_ID, checkpoint, mock(ActionListener.class));
         CapturingTransport.CapturedRequest[] requestList = transport.getCapturedRequestsAndClear();
         assertEquals(1, requestList.length);
@@ -110,19 +104,13 @@ public class PrimaryShardReplicationSourceTests extends IndexShardTestCase {
     }
 
     public void testGetSegmentFiles() {
-        final ReplicationCheckpoint checkpoint = new ReplicationCheckpoint(
-            indexShard.shardId(),
-            PRIMARY_TERM,
-            SEGMENTS_GEN,
-            VERSION,
-            Codec.getDefault().getName()
-        );
+        final ReplicationCheckpoint checkpoint = new ReplicationCheckpoint(indexShard.shardId(), PRIMARY_TERM, SEGMENTS_GEN, VERSION);
         StoreFileMetadata testMetadata = new StoreFileMetadata("testFile", 1L, "checksum", Version.LATEST);
         replicationSource.getSegmentFiles(
             REPLICATION_ID,
             checkpoint,
             Arrays.asList(testMetadata),
-            mock(IndexShard.class),
+            mock(Store.class),
             mock(ActionListener.class)
         );
         CapturingTransport.CapturedRequest[] requestList = transport.getCapturedRequestsAndClear();
@@ -138,19 +126,13 @@ public class PrimaryShardReplicationSourceTests extends IndexShardTestCase {
      */
     public void testTransportTimeoutForGetSegmentFilesAction() {
         long fileSize = (long) (Math.pow(10, 9));
-        final ReplicationCheckpoint checkpoint = new ReplicationCheckpoint(
-            indexShard.shardId(),
-            PRIMARY_TERM,
-            SEGMENTS_GEN,
-            VERSION,
-            Codec.getDefault().getName()
-        );
+        final ReplicationCheckpoint checkpoint = new ReplicationCheckpoint(indexShard.shardId(), PRIMARY_TERM, SEGMENTS_GEN, VERSION);
         StoreFileMetadata testMetadata = new StoreFileMetadata("testFile", fileSize, "checksum", Version.LATEST);
         replicationSource.getSegmentFiles(
             REPLICATION_ID,
             checkpoint,
             Arrays.asList(testMetadata),
-            mock(IndexShard.class),
+            mock(Store.class),
             mock(ActionListener.class)
         );
         CapturingTransport.CapturedRequest[] requestList = transport.getCapturedRequestsAndClear();
@@ -163,19 +145,13 @@ public class PrimaryShardReplicationSourceTests extends IndexShardTestCase {
 
     public void testGetSegmentFiles_CancelWhileRequestOpen() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
-        final ReplicationCheckpoint checkpoint = new ReplicationCheckpoint(
-            indexShard.shardId(),
-            PRIMARY_TERM,
-            SEGMENTS_GEN,
-            VERSION,
-            Codec.getDefault().getName()
-        );
+        final ReplicationCheckpoint checkpoint = new ReplicationCheckpoint(indexShard.shardId(), PRIMARY_TERM, SEGMENTS_GEN, VERSION);
         StoreFileMetadata testMetadata = new StoreFileMetadata("testFile", 1L, "checksum", Version.LATEST);
         replicationSource.getSegmentFiles(
             REPLICATION_ID,
             checkpoint,
             Arrays.asList(testMetadata),
-            mock(IndexShard.class),
+            mock(Store.class),
             new ActionListener<>() {
                 @Override
                 public void onResponse(GetSegmentFilesResponse getSegmentFilesResponse) {

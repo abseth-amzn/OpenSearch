@@ -33,13 +33,11 @@
 package org.opensearch.rest;
 
 import org.opensearch.client.node.NodeClient;
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.core.rest.RestStatus;
-import org.opensearch.identity.IdentityService;
-import org.opensearch.core.indices.breaker.CircuitBreakerService;
+import org.opensearch.indices.breaker.CircuitBreakerService;
 import org.opensearch.indices.breaker.HierarchyCircuitBreakerService;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.rest.FakeRestChannel;
@@ -106,15 +104,7 @@ public class RestHttpResponseHeadersTests extends OpenSearchTestCase {
 
         final Settings settings = Settings.EMPTY;
         UsageService usageService = new UsageService();
-        final IdentityService identityService = new IdentityService(settings, List.of());
-        RestController restController = new RestController(
-            Collections.emptySet(),
-            null,
-            null,
-            circuitBreakerService,
-            usageService,
-            identityService
-        );
+        RestController restController = new RestController(Collections.emptySet(), null, null, circuitBreakerService, usageService);
 
         // A basic RestHandler handles requests to the endpoint
         RestHandler restHandler = new RestHandler() {

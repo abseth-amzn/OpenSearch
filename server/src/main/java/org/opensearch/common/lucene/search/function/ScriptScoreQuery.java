@@ -32,6 +32,7 @@
 
 package org.opensearch.common.lucene.search.function;
 
+import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.DocIdSetIterator;
@@ -104,12 +105,12 @@ public class ScriptScoreQuery extends Query {
     }
 
     @Override
-    public Query rewrite(IndexSearcher searcher) throws IOException {
-        Query newQ = subQuery.rewrite(searcher);
+    public Query rewrite(IndexReader reader) throws IOException {
+        Query newQ = subQuery.rewrite(reader);
         if (newQ != subQuery) {
             return new ScriptScoreQuery(newQ, queryName, script, scriptBuilder, minScore, indexName, shardId, indexVersion);
         }
-        return super.rewrite(searcher);
+        return super.rewrite(reader);
     }
 
     @Override

@@ -33,7 +33,6 @@
 package org.opensearch.transport;
 
 import org.opensearch.action.ActionListener;
-import org.opensearch.core.transport.TransportResponse;
 
 public class TestTransportChannel implements TransportChannel {
 

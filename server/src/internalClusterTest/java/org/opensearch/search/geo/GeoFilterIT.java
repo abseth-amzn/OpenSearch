@@ -48,7 +48,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.Priority;
 import org.opensearch.common.Strings;
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.geo.GeoPoint;
 import org.opensearch.common.geo.GeoUtils;
 import org.opensearch.common.geo.builders.CoordinatesBuilder;
@@ -60,7 +60,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.common.util.io.Streams;
+import org.opensearch.core.internal.io.Streams;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
 import org.opensearch.test.OpenSearchIntegTestCase;
@@ -406,7 +406,9 @@ public class GeoFilterIT extends OpenSearchIntegTestCase {
             .endObject();
 
         client().admin().indices().prepareCreate("countries").setSettings(settings).setMapping(xContentBuilder).get();
-        BulkResponse bulk = client().prepareBulk().add(bulkAction, 0, bulkAction.length, null, xContentBuilder.contentType()).get();
+        BulkResponse bulk = client().prepareBulk()
+            .add(bulkAction, 0, bulkAction.length, null, XContentType.fromMediaType(xContentBuilder.contentType()))
+            .get();
 
         for (BulkItemResponse item : bulk.getItems()) {
             assertFalse("unable to index data", item.isFailed());

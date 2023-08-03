@@ -32,16 +32,16 @@
 
 package org.opensearch.common;
 
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.core.common.io.stream.Writeable;
-import org.opensearch.core.common.unit.ByteSizeValue;
+import com.carrotsearch.hppc.ObjectLongHashMap;
+import com.carrotsearch.hppc.cursors.ObjectLongCursor;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.core.xcontent.XContentBuilder;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -49,37 +49,45 @@ import java.util.Objects;
  *
  * @opensearch.internal
  */
-public final class FieldMemoryStats implements Writeable, Iterable<Map.Entry<String, Long>> {
+public final class FieldMemoryStats implements Writeable, Iterable<ObjectLongCursor<String>> {
 
-    private final Map<String, Long> stats;
+    private final ObjectLongHashMap<String> stats;
 
     /**
      * Creates a new FieldMemoryStats instance
      */
-    public FieldMemoryStats(Map<String, Long> stats) {
+    public FieldMemoryStats(ObjectLongHashMap<String> stats) {
         this.stats = Objects.requireNonNull(stats, "status must be non-null");
-        assert stats.containsKey(null) == false;
+        assert !stats.containsKey(null);
     }
 
     /**
      * Creates a new FieldMemoryStats instance from a stream
      */
     public FieldMemoryStats(StreamInput input) throws IOException {
-        stats = input.readMap(StreamInput::readString, StreamInput::readVLong);
+        int size = input.readVInt();
+        stats = new ObjectLongHashMap<>(size);
+        for (int i = 0; i < size; i++) {
+            stats.put(input.readString(), input.readVLong());
+        }
     }
 
     /**
      * Adds / merges the given field memory stats into this stats instance
      */
     public void add(FieldMemoryStats fieldMemoryStats) {
-        for (final var entry : fieldMemoryStats.stats.entrySet()) {
-            stats.merge(entry.getKey(), entry.getValue(), Long::sum);
+        for (ObjectLongCursor<String> entry : fieldMemoryStats.stats) {
+            stats.addTo(entry.key, entry.value);
         }
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        out.writeMap(stats, StreamOutput::writeString, StreamOutput::writeVLong);
+        out.writeVInt(stats.size());
+        for (ObjectLongCursor<String> entry : stats) {
+            out.writeString(entry.key);
+            out.writeVLong(entry.value);
+        }
     }
 
     /**
@@ -91,9 +99,9 @@ public final class FieldMemoryStats implements Writeable, Iterable<Map.Entry<Str
      */
     public void toXContent(XContentBuilder builder, String key, String rawKey, String readableKey) throws IOException {
         builder.startObject(key);
-        for (final var entry : stats.entrySet()) {
-            builder.startObject(entry.getKey());
-            builder.humanReadableField(rawKey, readableKey, new ByteSizeValue(entry.getValue()));
+        for (ObjectLongCursor<String> entry : stats) {
+            builder.startObject(entry.key);
+            builder.humanReadableField(rawKey, readableKey, new ByteSizeValue(entry.value));
             builder.endObject();
         }
         builder.endObject();
@@ -103,7 +111,7 @@ public final class FieldMemoryStats implements Writeable, Iterable<Map.Entry<Str
      * Creates a deep copy of this stats instance
      */
     public FieldMemoryStats copy() {
-        return new FieldMemoryStats(new HashMap<>(stats));
+        return new FieldMemoryStats(stats.clone());
     }
 
     @Override
@@ -120,15 +128,15 @@ public final class FieldMemoryStats implements Writeable, Iterable<Map.Entry<Str
     }
 
     @Override
-    public Iterator<Map.Entry<String, Long>> iterator() {
-        return stats.entrySet().iterator();
+    public Iterator<ObjectLongCursor<String>> iterator() {
+        return stats.iterator();
     }
 
     /**
      * Returns the fields value in bytes or <code>0</code> if it's not present in the stats
      */
     public long get(String field) {
-        return stats.getOrDefault(field, 0L);
+        return stats.get(field);
     }
 
     /**

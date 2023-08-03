@@ -11,8 +11,7 @@ package org.opensearch.index;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.index.Index;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.util.concurrent.TimeUnit;

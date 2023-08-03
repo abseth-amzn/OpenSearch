@@ -256,12 +256,4 @@ public class RestoreSnapshotRequestBuilder extends ClusterManagerNodeOperationRe
         request.storageType(storageType);
         return this;
     }
-
-    /**
-     * Sets the source remote store repository name
-     */
-    public RestoreSnapshotRequestBuilder setSourceRemoteStoreRepository(String repositoryName) {
-        request.setSourceRemoteStoreRepository(repositoryName);
-        return this;
-    }
 }

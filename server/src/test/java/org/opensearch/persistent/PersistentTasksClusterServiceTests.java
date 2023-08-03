@@ -32,6 +32,7 @@
 
 package org.opensearch.persistent;
 
+import com.carrotsearch.hppc.cursors.ObjectCursor;
 import org.opensearch.ResourceNotFoundException;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
@@ -676,8 +677,8 @@ public class PersistentTasksClusterServiceTests extends OpenSearchTestCase {
             return NO_NODE_FOUND;
         }
         List<String> nodeList = new ArrayList<>();
-        for (final String node : nodes.getNodes().keySet()) {
-            nodeList.add(node);
+        for (ObjectCursor<String> node : nodes.getNodes().keys()) {
+            nodeList.add(node.value);
         }
         String node = randomFrom(nodeList);
         if (node != null) {

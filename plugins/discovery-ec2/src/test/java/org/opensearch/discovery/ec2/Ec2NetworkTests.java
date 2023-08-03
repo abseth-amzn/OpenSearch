@@ -34,11 +34,12 @@ package org.opensearch.discovery.ec2;
 
 import com.sun.net.httpserver.HttpServer;
 
+import org.opensearch.common.Strings;
 import org.opensearch.common.SuppressForbidden;
 import org.opensearch.common.network.NetworkService;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.common.Strings;
-import org.opensearch.core.rest.RestStatus;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.test.OpenSearchTestCase;
 
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -54,6 +55,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.function.BiConsumer;
 
+import static com.amazonaws.SDKGlobalConfiguration.EC2_METADATA_SERVICE_OVERRIDE_SYSTEM_PROPERTY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.hamcrest.Matchers.arrayContaining;
 import static org.hamcrest.Matchers.equalTo;
@@ -65,7 +67,7 @@ import static org.hamcrest.Matchers.equalTo;
  * They aren't.
  */
 @SuppressForbidden(reason = "use http server")
-public class Ec2NetworkTests extends AbstractEc2DiscoveryTestCase {
+public class Ec2NetworkTests extends OpenSearchTestCase {
 
     private static HttpServer httpServer;
 
@@ -95,7 +97,7 @@ public class Ec2NetworkTests extends AbstractEc2DiscoveryTestCase {
         // redirect EC2 metadata service to httpServer
         AccessController.doPrivileged(
             (PrivilegedAction<String>) () -> System.setProperty(
-                "aws.ec2MetadataServiceEndpoint",
+                EC2_METADATA_SERVICE_OVERRIDE_SYSTEM_PROPERTY,
                 "http://" + httpServer.getAddress().getHostName() + ":" + httpServer.getAddress().getPort()
             )
         );
@@ -120,7 +122,7 @@ public class Ec2NetworkTests extends AbstractEc2DiscoveryTestCase {
     public void testNetworkHostUnableToResolveEc2() {
         // redirect EC2 metadata service to unknown location
         AccessController.doPrivileged(
-            (PrivilegedAction<String>) () -> System.setProperty("aws.ec2MetadataServiceEndpoint", "http://127.0.0.1/")
+            (PrivilegedAction<String>) () -> System.setProperty(EC2_METADATA_SERVICE_OVERRIDE_SYSTEM_PROPERTY, "http://127.0.0.1/")
         );
 
         try {

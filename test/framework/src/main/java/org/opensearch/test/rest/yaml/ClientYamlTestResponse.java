@@ -36,9 +36,8 @@ import org.apache.hc.core5.http.Header;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Response;
 import org.opensearch.common.Strings;
-import org.opensearch.core.common.bytes.BytesArray;
+import org.opensearch.common.bytes.BytesArray;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
-import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -59,7 +58,7 @@ public class ClientYamlTestResponse {
 
     private final Response response;
     private final byte[] body;
-    private final MediaType bodyContentType;
+    private final XContentType bodyContentType;
     private ObjectPath parsedResponse;
     private String bodyAsString;
 
@@ -67,7 +66,7 @@ public class ClientYamlTestResponse {
         this.response = response;
         if (response.getEntity() != null) {
             String contentType = response.getHeader("Content-Type");
-            this.bodyContentType = MediaType.fromMediaType(contentType);
+            this.bodyContentType = XContentType.fromMediaType(contentType);
             try {
                 byte[] bytes = EntityUtils.toByteArray(response.getEntity());
                 // skip parsing if we got text back (e.g. if we called _cat apis)

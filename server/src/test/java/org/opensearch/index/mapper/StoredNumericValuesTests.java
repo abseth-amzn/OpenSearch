@@ -38,7 +38,7 @@ import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.store.ByteBuffersDirectory;
 import org.opensearch.common.Strings;
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.compress.CompressedXContent;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.common.util.set.Sets;
@@ -48,7 +48,6 @@ import org.opensearch.index.fieldvisitor.CustomFieldsVisitor;
 import org.opensearch.index.mapper.MapperService.MergeReason;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 
-import java.math.BigInteger;
 import java.util.Set;
 
 import static org.hamcrest.Matchers.equalTo;
@@ -102,10 +101,6 @@ public class StoredNumericValuesTests extends OpenSearchSingleNodeTestCase {
                 .field("type", "boolean")
                 .field("store", true)
                 .endObject()
-                .startObject("field11")
-                .field("type", "unsigned_long")
-                .field("store", true)
-                .endObject()
                 .endObject()
                 .endObject()
                 .endObject()
@@ -134,7 +129,6 @@ public class StoredNumericValuesTests extends OpenSearchSingleNodeTestCase {
                         .field("field8", "2001:db8::2:1")
                         .field("field9", "2016-04-05")
                         .field("field10", true)
-                        .field("field11", "1")
                         .endObject()
                 ),
                 XContentType.JSON
@@ -156,14 +150,13 @@ public class StoredNumericValuesTests extends OpenSearchSingleNodeTestCase {
             "field7",
             "field8",
             "field9",
-            "field10",
-            "field11"
+            "field10"
         );
         CustomFieldsVisitor fieldsVisitor = new CustomFieldsVisitor(fieldNames, false);
         searcher.doc(0, fieldsVisitor);
 
         fieldsVisitor.postProcess(mapperService::fieldType);
-        assertThat(fieldsVisitor.fields().size(), equalTo(11));
+        assertThat(fieldsVisitor.fields().size(), equalTo(10));
         assertThat(fieldsVisitor.fields().get("field1").size(), equalTo(1));
         assertThat(fieldsVisitor.fields().get("field1").get(0), equalTo((byte) 1));
 
@@ -195,9 +188,6 @@ public class StoredNumericValuesTests extends OpenSearchSingleNodeTestCase {
 
         assertThat(fieldsVisitor.fields().get("field10").size(), equalTo(1));
         assertThat(fieldsVisitor.fields().get("field10").get(0), equalTo(true));
-
-        assertThat(fieldsVisitor.fields().get("field11").size(), equalTo(1));
-        assertThat(fieldsVisitor.fields().get("field11").get(0), equalTo(BigInteger.valueOf(1)));
 
         reader.close();
         writer.close();

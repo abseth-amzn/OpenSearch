@@ -44,7 +44,6 @@ import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.tests.index.RandomIndexWriter;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.sandbox.document.BigIntegerPoint;
 import org.apache.lucene.sandbox.document.HalfFloatPoint;
 import org.apache.lucene.tests.search.AssertingIndexSearcher;
 import org.apache.lucene.search.IndexSearcher;
@@ -79,7 +78,6 @@ import org.opensearch.search.SearchSortValuesAndFormats;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -506,7 +504,7 @@ public class FieldSortBuilderTests extends AbstractSortTestCase<FieldSortBuilder
 
                             case INTEGER:
                                 int v2 = randomInt();
-                                values[i] = (int) v2;
+                                values[i] = (long) v2;
                                 doc.add(new IntPoint(fieldName, v2));
                                 break;
 
@@ -530,20 +528,14 @@ public class FieldSortBuilderTests extends AbstractSortTestCase<FieldSortBuilder
 
                             case BYTE:
                                 byte v6 = randomByte();
-                                values[i] = (int) v6;
+                                values[i] = (long) v6;
                                 doc.add(new IntPoint(fieldName, v6));
                                 break;
 
                             case SHORT:
                                 short v7 = randomShort();
-                                values[i] = (int) v7;
+                                values[i] = (long) v7;
                                 doc.add(new IntPoint(fieldName, v7));
-                                break;
-
-                            case UNSIGNED_LONG:
-                                BigInteger v8 = randomUnsignedLong();
-                                values[i] = v8;
-                                doc.add(new BigIntegerPoint(fieldName, v8));
                                 break;
 
                             default:
@@ -554,8 +546,7 @@ public class FieldSortBuilderTests extends AbstractSortTestCase<FieldSortBuilder
                     Arrays.sort(values);
                     try (DirectoryReader reader = writer.getReader()) {
                         QueryShardContext newContext = createMockShardContext(new AssertingIndexSearcher(random(), reader));
-                        if (numberType == NumberFieldMapper.NumberType.HALF_FLOAT
-                            || numberType == NumberFieldMapper.NumberType.UNSIGNED_LONG) {
+                        if (numberType == NumberFieldMapper.NumberType.HALF_FLOAT) {
                             assertNull(getMinMaxOrNull(newContext, SortBuilders.fieldSort(fieldName + "-ni")));
                             assertNull(getMinMaxOrNull(newContext, SortBuilders.fieldSort(fieldName)));
                         } else {

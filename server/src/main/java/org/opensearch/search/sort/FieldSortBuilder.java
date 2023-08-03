@@ -34,16 +34,15 @@ package org.opensearch.search.sort;
 
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.MultiTerms;
 import org.apache.lucene.index.PointValues;
 import org.apache.lucene.index.Terms;
 import org.apache.lucene.search.SortField;
 import org.opensearch.OpenSearchParseException;
 import org.opensearch.core.ParseField;
-import org.opensearch.core.common.ParsingException;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.common.ParsingException;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.logging.DeprecationLogger;
 import org.opensearch.common.time.DateMathParser;
 import org.opensearch.common.time.DateUtils;
@@ -71,7 +70,6 @@ import org.opensearch.search.SearchSortValuesAndFormats;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
-import java.math.BigInteger;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Objects;
@@ -389,8 +387,6 @@ public class FieldSortBuilder extends SortBuilder<FieldSortBuilder> {
                 return NumericType.DATE;
             case "date_nanos":
                 return NumericType.DATE_NANOSECONDS;
-            case "unsigned_long":
-                return NumericType.UNSIGNED_LONG;
 
             default:
                 throw new IllegalArgumentException(
@@ -606,31 +602,17 @@ public class FieldSortBuilder extends SortBuilder<FieldSortBuilder> {
     }
 
     /**
-     * Return the {@link MinAndMax} indexed value for shard from the provided {@link FieldSortBuilder} or <code>null</code> if unknown.
+     * Return the {@link MinAndMax} indexed value from the provided {@link FieldSortBuilder} or <code>null</code> if unknown.
      * The value can be extracted on non-nested indexed mapped fields of type keyword, numeric or date, other fields
      * and configurations return <code>null</code>.
      */
     public static MinAndMax<?> getMinMaxOrNull(QueryShardContext context, FieldSortBuilder sortBuilder) throws IOException {
-        return getMinMaxOrNullInternal(context.getIndexReader(), context, sortBuilder);
-    }
-
-    /**
-     * Return the {@link MinAndMax} indexed value for segment from the provided {@link FieldSortBuilder} or <code>null</code> if unknown.
-     * The value can be extracted on non-nested indexed mapped fields of type keyword, numeric or date, other fields
-     * and configurations return <code>null</code>.
-     */
-    public static MinAndMax<?> getMinMaxOrNullForSegment(QueryShardContext context, LeafReaderContext ctx, FieldSortBuilder sortBuilder)
-        throws IOException {
-        return getMinMaxOrNullInternal(ctx.reader(), context, sortBuilder);
-    }
-
-    private static MinAndMax<?> getMinMaxOrNullInternal(IndexReader reader, QueryShardContext context, FieldSortBuilder sortBuilder)
-        throws IOException {
         SortAndFormats sort = SortBuilder.buildSort(Collections.singletonList(sortBuilder), context).get();
         SortField sortField = sort.sort.getSort()[0];
         if (sortField.getField() == null) {
             return null;
         }
+        IndexReader reader = context.getIndexReader();
         MappedFieldType fieldType = context.fieldMapper(sortField.getField());
         if (reader == null || (fieldType == null || fieldType.isSearchable() == false)) {
             return null;
@@ -671,12 +653,7 @@ public class FieldSortBuilder extends SortBuilder<FieldSortBuilder> {
             Number maxPoint = numberFieldType.parsePoint(PointValues.getMaxPackedValue(reader, fieldName));
             switch (IndexSortConfig.getSortFieldType(sortField)) {
                 case LONG:
-                    if (numberFieldType.numericType() == NumericType.UNSIGNED_LONG) {
-                        // The min and max are expected to be BigInteger numbers
-                        return new MinAndMax<>((BigInteger) minPoint, (BigInteger) maxPoint);
-                    } else {
-                        return new MinAndMax<>(minPoint.longValue(), maxPoint.longValue());
-                    }
+                    return new MinAndMax<>(minPoint.longValue(), maxPoint.longValue());
                 case INT:
                     return new MinAndMax<>(minPoint.intValue(), maxPoint.intValue());
                 case DOUBLE:

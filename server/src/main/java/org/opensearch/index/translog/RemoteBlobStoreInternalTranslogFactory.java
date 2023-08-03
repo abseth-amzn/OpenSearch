@@ -71,8 +71,4 @@ public class RemoteBlobStoreInternalTranslogFactory implements TranslogFactory {
             primaryModeSupplier
         );
     }
-
-    public Repository getRepository() {
-        return repository;
-    }
 }

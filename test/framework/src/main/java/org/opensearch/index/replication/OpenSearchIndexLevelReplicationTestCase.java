@@ -74,14 +74,14 @@ import org.opensearch.cluster.routing.ShardRoutingState;
 import org.opensearch.cluster.routing.TestShardRouting;
 import org.opensearch.common.collect.Iterators;
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.lease.Releasable;
+import org.opensearch.common.lease.Releasables;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.common.lease.Releasable;
-import org.opensearch.common.lease.Releasables;
-import org.opensearch.core.index.Index;
+import org.opensearch.index.Index;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.engine.DocIdSeqNoAndSource;
 import org.opensearch.index.engine.EngineConfigFactory;
@@ -96,7 +96,7 @@ import org.opensearch.index.seqno.RetentionLeases;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.index.shard.IndexShardTestCase;
 import org.opensearch.index.shard.PrimaryReplicaSyncer;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.index.shard.ShardPath;
 import org.opensearch.index.store.Store;
 import org.opensearch.index.translog.Translog;
@@ -149,11 +149,7 @@ public abstract class OpenSearchIndexLevelReplicationTestCase extends IndexShard
 
     protected ReplicationGroup createGroup(int replicas, Settings settings, String mappings, EngineFactory engineFactory)
         throws IOException {
-        Path remotePath = null;
-        if ("true".equals(settings.get(IndexMetadata.SETTING_REMOTE_STORE_ENABLED))) {
-            remotePath = createTempDir();
-        }
-        return createGroup(replicas, settings, mappings, engineFactory, remotePath);
+        return createGroup(replicas, settings, mappings, engineFactory, null);
     }
 
     protected ReplicationGroup createGroup(int replicas, Settings settings, String mappings, EngineFactory engineFactory, Path remotePath)

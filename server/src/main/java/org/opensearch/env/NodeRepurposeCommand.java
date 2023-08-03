@@ -31,6 +31,7 @@
 
 package org.opensearch.env;
 
+import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import org.opensearch.OpenSearchException;
@@ -42,7 +43,7 @@ import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.set.Sets;
-import org.opensearch.common.util.io.IOUtils;
+import org.opensearch.core.internal.io.IOUtils;
 import org.opensearch.gateway.MetadataStateFormat;
 import org.opensearch.gateway.PersistedClusterStateService;
 
@@ -157,7 +158,7 @@ public class NodeRepurposeCommand extends OpenSearchNodeCommand {
             Sets.union(
                 indexUUIDsFor(indexPaths),
                 StreamSupport.stream(metadata.indices().values().spliterator(), false)
-                    .map(imd -> imd.getIndexUUID())
+                    .map(imd -> imd.value.getIndexUUID())
                     .collect(Collectors.toSet())
             )
         );
@@ -301,9 +302,9 @@ public class NodeRepurposeCommand extends OpenSearchNodeCommand {
 
     private String toIndexName(String uuid, Metadata metadata) {
         if (metadata != null) {
-            for (final IndexMetadata indexMetadata : metadata.indices().values()) {
-                if (indexMetadata.getIndexUUID().equals(uuid)) {
-                    return indexMetadata.getIndex().getName();
+            for (ObjectObjectCursor<String, IndexMetadata> indexMetadata : metadata.indices()) {
+                if (indexMetadata.value.getIndexUUID().equals(uuid)) {
+                    return indexMetadata.value.getIndex().getName();
                 }
             }
         }

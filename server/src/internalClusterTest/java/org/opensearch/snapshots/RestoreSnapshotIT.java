@@ -44,13 +44,12 @@ import org.opensearch.cluster.block.ClusterBlocks;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.common.unit.ByteSizeUnit;
+import org.opensearch.common.unit.ByteSizeUnit;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.FeatureFlags;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.core.rest.RestStatus;
 import org.opensearch.indices.InvalidIndexNameException;
 import org.opensearch.repositories.RepositoriesService;
+import org.opensearch.rest.RestStatus;
 
 import java.nio.file.Path;
 import java.util.Collections;
@@ -82,10 +81,6 @@ import static org.opensearch.test.hamcrest.OpenSearchAssertions.assertIndexTempl
 import static org.opensearch.test.hamcrest.OpenSearchAssertions.assertRequestBuilderThrows;
 
 public class RestoreSnapshotIT extends AbstractSnapshotIntegTestCase {
-    @Override
-    protected Settings nodeSettings(int nodeOrdinal) {
-        return Settings.builder().put(super.nodeSettings(nodeOrdinal)).put(FeatureFlags.REMOTE_STORE, "true").build();
-    }
 
     public void testParallelRestoreOperations() {
         String indexName1 = "testindex1";

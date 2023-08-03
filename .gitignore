@@ -17,9 +17,6 @@ out/
 benchmarks/src/main/generated/*
 benchmarks/bin/*
 benchmarks/build-eclipse-default/*
-server/bin/*
-server/build-eclipse-default/*
-test/framework/build-eclipse-default/*
 
 # eclipse files
 .project

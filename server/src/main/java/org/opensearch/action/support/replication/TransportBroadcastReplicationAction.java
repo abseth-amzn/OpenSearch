@@ -32,10 +32,11 @@
 
 package org.opensearch.action.support.replication;
 
+import com.carrotsearch.hppc.cursors.IntObjectCursor;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.core.action.support.DefaultShardOperationFailedException;
+import org.opensearch.action.support.DefaultShardOperationFailedException;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.TransportActions;
 import org.opensearch.action.support.broadcast.BroadcastRequest;
@@ -46,9 +47,9 @@ import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.routing.IndexShardRoutingTable;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.core.common.io.stream.Writeable;
+import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.util.concurrent.CountDown;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
@@ -153,12 +154,11 @@ public abstract class TransportBroadcastReplicationAction<
         for (String index : concreteIndices) {
             IndexMetadata indexMetadata = clusterState.metadata().getIndices().get(index);
             if (indexMetadata != null) {
-                for (IndexShardRoutingTable shardRouting : clusterState.getRoutingTable()
+                for (IntObjectCursor<IndexShardRoutingTable> shardRouting : clusterState.getRoutingTable()
                     .indicesRouting()
                     .get(index)
-                    .getShards()
-                    .values()) {
-                    shardIds.add(shardRouting.shardId());
+                    .getShards()) {
+                    shardIds.add(shardRouting.value.shardId());
                 }
             }
         }

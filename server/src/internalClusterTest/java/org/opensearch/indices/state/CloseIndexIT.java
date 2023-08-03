@@ -46,8 +46,8 @@ import org.opensearch.cluster.metadata.MetadataIndexStateService;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.routing.ShardRouting;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.common.unit.ByteSizeUnit;
-import org.opensearch.core.common.unit.ByteSizeValue;
+import org.opensearch.common.unit.ByteSizeUnit;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.util.set.Sets;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.IndexSettings;
@@ -462,7 +462,7 @@ public class CloseIndexIT extends OpenSearchIntegTestCase {
         internalCluster().ensureAtLeastNumDataNodes(2);
         List<String> dataNodes = randomSubsetOf(
             2,
-            Sets.newHashSet(clusterService().state().nodes().getDataNodes().values().iterator())
+            Sets.newHashSet(clusterService().state().nodes().getDataNodes().valuesIt())
                 .stream()
                 .map(DiscoveryNode::getName)
                 .collect(Collectors.toSet())

@@ -36,9 +36,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LogEvent;
 import org.opensearch.cluster.metadata.IndexMetadata;
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.collect.Tuple;
-import org.opensearch.core.common.io.stream.BytesStreamInput;
+import org.opensearch.common.io.stream.BytesStreamInput;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.settings.AbstractScopedSettings.SettingUpdater;
 import org.opensearch.common.settings.Setting.ByteSizeValueParser;
@@ -51,8 +51,8 @@ import org.opensearch.common.settings.Setting.MinMaxTimeValueParser;
 import org.opensearch.common.settings.Setting.MinTimeValueParser;
 import org.opensearch.common.settings.Setting.Property;
 import org.opensearch.common.settings.Setting.RegexValidator;
-import org.opensearch.core.common.unit.ByteSizeUnit;
-import org.opensearch.core.common.unit.ByteSizeValue;
+import org.opensearch.common.unit.ByteSizeUnit;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.monitor.jvm.JvmInfo;
@@ -329,32 +329,18 @@ public class SettingTests extends OpenSearchTestCase {
         String expectedRegex = "\\d+";
         Pattern expectedPattern = Pattern.compile(expectedRegex);
         RegexValidator regexValidator = new RegexValidator(expectedRegex);
-        RegexValidator regexValidatorMatcherFalse = new RegexValidator(expectedRegex, false);
 
         // Test that the pattern is correctly initialized
         assertNotNull(expectedPattern);
         assertNotNull(regexValidator.getPattern());
         assertEquals(expectedPattern.pattern(), regexValidator.getPattern().pattern());
 
-        // Test that checks the pattern and isMatching with the set value false parameters are working correctly during initialization
-        assertNotNull(regexValidatorMatcherFalse);
-        assertNotNull(regexValidatorMatcherFalse.getPattern());
-        assertEquals(expectedPattern.pattern(), regexValidatorMatcherFalse.getPattern().pattern());
-
-        // Test throw an exception when the value does not match
+        // Test that validate() throws an exception for invalid input
         final RegexValidator finalValidator = new RegexValidator(expectedRegex);
         assertThrows(IllegalArgumentException.class, () -> finalValidator.validate("foo"));
+
         try {
             regexValidator.validate("123");
-        } catch (IllegalArgumentException e) {
-            fail("Expected validate() to not throw an exception, but it threw " + e);
-        }
-
-        // Test throws an exception when the value matches
-        final RegexValidator finalValidatorFalse = new RegexValidator(expectedRegex);
-        assertThrows(IllegalArgumentException.class, () -> finalValidatorFalse.validate(expectedRegex));
-        try {
-            regexValidatorMatcherFalse.validate(expectedRegex);
         } catch (IllegalArgumentException e) {
             fail("Expected validate() to not throw an exception, but it threw " + e);
         }

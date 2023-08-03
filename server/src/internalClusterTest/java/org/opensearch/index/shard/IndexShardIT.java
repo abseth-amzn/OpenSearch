@@ -55,19 +55,18 @@ import org.opensearch.common.CheckedFunction;
 import org.opensearch.common.CheckedRunnable;
 import org.opensearch.common.Strings;
 import org.opensearch.common.UUIDs;
-import org.opensearch.core.common.bytes.BytesArray;
+import org.opensearch.common.bytes.BytesArray;
 import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.common.unit.ByteSizeUnit;
-import org.opensearch.core.common.unit.ByteSizeValue;
+import org.opensearch.common.unit.ByteSizeUnit;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.common.util.io.IOUtils;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.core.internal.io.IOUtils;
 import org.opensearch.env.Environment;
 import org.opensearch.env.NodeEnvironment;
 import org.opensearch.env.ShardLock;
-import org.opensearch.core.index.Index;
+import org.opensearch.index.Index;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.VersionType;
@@ -84,7 +83,7 @@ import org.opensearch.index.translog.TestTranslog;
 import org.opensearch.index.translog.Translog;
 import org.opensearch.index.translog.TranslogStats;
 import org.opensearch.indices.IndicesService;
-import org.opensearch.core.indices.breaker.CircuitBreakerService;
+import org.opensearch.indices.breaker.CircuitBreakerService;
 import org.opensearch.indices.recovery.RecoveryState;
 import org.opensearch.indices.replication.checkpoint.SegmentReplicationCheckpointPublisher;
 import org.opensearch.plugins.Plugin;
@@ -621,7 +620,7 @@ public class IndexShardIT extends OpenSearchSingleNodeTestCase {
         client().prepareIndex("test").setId("1").setSource("{\"foo\" : \"bar\"}", XContentType.JSON).setRefreshPolicy(IMMEDIATE).get();
 
         CheckedFunction<DirectoryReader, DirectoryReader, IOException> wrapper = directoryReader -> directoryReader;
-        shard.close("simon says", false, false);
+        shard.close("simon says", false);
         AtomicReference<IndexShard> shardRef = new AtomicReference<>();
         List<Exception> failures = new ArrayList<>();
         IndexingOperationListener listener = new IndexingOperationListener() {
@@ -659,7 +658,7 @@ public class IndexShardIT extends OpenSearchSingleNodeTestCase {
         try {
             ExceptionsHelper.rethrowAndSuppress(failures);
         } finally {
-            newShard.close("just do it", randomBoolean(), false);
+            newShard.close("just do it", randomBoolean());
         }
     }
 
@@ -702,7 +701,6 @@ public class IndexShardIT extends OpenSearchSingleNodeTestCase {
             cbs,
             (indexSettings, shardRouting) -> new InternalTranslogFactory(),
             SegmentReplicationCheckpointPublisher.EMPTY,
-            null,
             null
         );
     }

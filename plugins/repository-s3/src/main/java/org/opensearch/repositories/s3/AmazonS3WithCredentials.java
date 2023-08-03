@@ -8,32 +8,32 @@
 
 package org.opensearch.repositories.s3;
 
-import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
-import software.amazon.awssdk.services.s3.S3Client;
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.services.s3.AmazonS3;
 
 import org.opensearch.common.Nullable;
 
 /**
- * The holder of the AmazonS3 and AwsCredentialsProvider
+ * The holder of the AmazonS3 and AWSCredentialsProvider
  */
 final class AmazonS3WithCredentials {
-    private final S3Client client;
-    private final AwsCredentialsProvider credentials;
+    private final AmazonS3 client;
+    private final AWSCredentialsProvider credentials;
 
-    private AmazonS3WithCredentials(final S3Client client, @Nullable final AwsCredentialsProvider credentials) {
+    private AmazonS3WithCredentials(final AmazonS3 client, @Nullable final AWSCredentialsProvider credentials) {
         this.client = client;
         this.credentials = credentials;
     }
 
-    S3Client client() {
+    AmazonS3 client() {
         return client;
     }
 
-    AwsCredentialsProvider credentials() {
+    AWSCredentialsProvider credentials() {
         return credentials;
     }
 
-    static AmazonS3WithCredentials create(final S3Client client, @Nullable final AwsCredentialsProvider credentials) {
+    static AmazonS3WithCredentials create(final AmazonS3 client, @Nullable final AWSCredentialsProvider credentials) {
         return new AmazonS3WithCredentials(client, credentials);
     }
 }

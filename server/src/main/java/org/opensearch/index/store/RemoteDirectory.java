@@ -13,24 +13,16 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.store.Lock;
-import org.opensearch.action.ActionListener;
-import org.opensearch.action.LatchedActionListener;
 import org.opensearch.common.blobstore.BlobContainer;
 import org.opensearch.common.blobstore.BlobMetadata;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.NoSuchFileException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 /**
  * A {@code RemoteDirectory} provides an abstraction layer for storing a list of files to a remote store.
@@ -43,11 +35,7 @@ import java.util.stream.Collectors;
  */
 public class RemoteDirectory extends Directory {
 
-    protected final BlobContainer blobContainer;
-
-    public BlobContainer getBlobContainer() {
-        return blobContainer;
-    }
+    private final BlobContainer blobContainer;
 
     public RemoteDirectory(BlobContainer blobContainer) {
         this.blobContainer = blobContainer;
@@ -70,40 +58,6 @@ public class RemoteDirectory extends Directory {
      */
     public Collection<String> listFilesByPrefix(String filenamePrefix) throws IOException {
         return blobContainer.listBlobsByPrefix(filenamePrefix).keySet();
-    }
-
-    public List<String> listFilesByPrefixInLexicographicOrder(String filenamePrefix, int limit) throws IOException {
-        List<String> sortedBlobList = new ArrayList<>();
-        AtomicReference<Exception> exception = new AtomicReference<>();
-        final CountDownLatch latch = new CountDownLatch(1);
-        LatchedActionListener<List<BlobMetadata>> actionListener = new LatchedActionListener<>(new ActionListener<>() {
-            @Override
-            public void onResponse(List<BlobMetadata> blobMetadata) {
-                sortedBlobList.addAll(blobMetadata.stream().map(BlobMetadata::name).collect(Collectors.toList()));
-            }
-
-            @Override
-            public void onFailure(Exception e) {
-                exception.set(e);
-            }
-        }, latch);
-
-        try {
-            blobContainer.listBlobsByPrefixInSortedOrder(
-                filenamePrefix,
-                limit,
-                BlobContainer.BlobNameSortOrder.LEXICOGRAPHIC,
-                actionListener
-            );
-            latch.await();
-        } catch (InterruptedException e) {
-            throw new IOException("Exception in listFilesByPrefixInLexicographicOrder with prefix: " + filenamePrefix, e);
-        }
-        if (exception.get() != null) {
-            throw new IOException(exception.get());
-        } else {
-            return sortedBlobList;
-        }
     }
 
     /**
@@ -146,15 +100,7 @@ public class RemoteDirectory extends Directory {
      */
     @Override
     public IndexInput openInput(String name, IOContext context) throws IOException {
-        InputStream inputStream = null;
-        try {
-            inputStream = blobContainer.readBlob(name);
-            return new RemoteIndexInput(name, inputStream, fileLength(name));
-        } catch (Exception e) {
-            // Incase the RemoteIndexInput creation fails, close the input stream to avoid file handler leak.
-            if (inputStream != null) inputStream.close();
-            throw e;
-        }
+        return new RemoteIndexInput(name, blobContainer.readBlob(name), fileLength(name));
     }
 
     /**
@@ -254,9 +200,5 @@ public class RemoteDirectory extends Directory {
     @Override
     public Lock obtainLock(String name) throws IOException {
         throw new UnsupportedOperationException();
-    }
-
-    public void delete() throws IOException {
-        blobContainer.delete();
     }
 }

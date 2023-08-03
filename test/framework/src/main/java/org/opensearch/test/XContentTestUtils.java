@@ -32,10 +32,9 @@
 
 package org.opensearch.test;
 
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.MediaType;
-import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContent;
@@ -76,7 +75,7 @@ public final class XContentTestUtils {
     }
 
     public static BytesReference convertToXContent(Map<String, ?> map, XContentType xContentType) throws IOException {
-        try (XContentBuilder builder = MediaTypeRegistry.contentBuilder(xContentType)) {
+        try (XContentBuilder builder = XContentFactory.contentBuilder(xContentType)) {
             builder.map(map);
             return BytesReference.bytes(builder);
         }

@@ -32,7 +32,6 @@
 
 package org.opensearch.gateway;
 
-import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.index.CorruptIndexException;
 import org.opensearch.Version;
 import org.opensearch.cluster.ClusterName;
@@ -58,20 +57,17 @@ import org.opensearch.cluster.routing.allocation.decider.AllocationDeciders;
 import org.opensearch.cluster.routing.allocation.decider.Decision;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.UUIDs;
+import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.set.Sets;
-import org.opensearch.env.Environment;
 import org.opensearch.env.ShardLockObtainFailedException;
-import org.opensearch.index.IndexSettings;
-import org.opensearch.index.codec.CodecService;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.indices.replication.checkpoint.ReplicationCheckpoint;
 import org.opensearch.repositories.IndexId;
 import org.opensearch.snapshots.Snapshot;
 import org.opensearch.snapshots.SnapshotId;
 import org.opensearch.snapshots.SnapshotShardSizeInfo;
 import org.junit.Before;
-import org.opensearch.test.IndexSettingsModule;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -224,9 +220,9 @@ public class PrimaryShardAllocatorTests extends OpenSearchAllocationTestCase {
             allocId2,
             allocId3
         );
-        testAllocator.addData(node1, allocId1, false, new ReplicationCheckpoint(shardId, 20, 101, 1, Codec.getDefault().getName()));
-        testAllocator.addData(node2, allocId2, false, new ReplicationCheckpoint(shardId, 22, 120, 2, Codec.getDefault().getName()));
-        testAllocator.addData(node3, allocId3, false, new ReplicationCheckpoint(shardId, 20, 120, 2, Codec.getDefault().getName()));
+        testAllocator.addData(node1, allocId1, false, new ReplicationCheckpoint(shardId, 20, 101, 1));
+        testAllocator.addData(node2, allocId2, false, new ReplicationCheckpoint(shardId, 22, 120, 2));
+        testAllocator.addData(node3, allocId3, false, new ReplicationCheckpoint(shardId, 20, 120, 2));
         allocateAllUnassigned(allocation);
         assertThat(allocation.routingNodesChanged(), equalTo(true));
         assertThat(allocation.routingNodes().unassigned().ignored().isEmpty(), equalTo(true));
@@ -257,9 +253,9 @@ public class PrimaryShardAllocatorTests extends OpenSearchAllocationTestCase {
             allocId2,
             allocId3
         );
-        testAllocator.addData(node1, allocId1, false, new ReplicationCheckpoint(shardId, 20, 101, 1, Codec.getDefault().getName()));
+        testAllocator.addData(node1, allocId1, false, new ReplicationCheckpoint(shardId, 20, 101, 1));
         testAllocator.addData(node2, allocId2, false);
-        testAllocator.addData(node3, allocId3, false, new ReplicationCheckpoint(shardId, 40, 120, 2, Codec.getDefault().getName()));
+        testAllocator.addData(node3, allocId3, false, new ReplicationCheckpoint(shardId, 40, 120, 2));
         allocateAllUnassigned(allocation);
         assertThat(allocation.routingNodesChanged(), equalTo(true));
         assertThat(allocation.routingNodes().unassigned().ignored().isEmpty(), equalTo(true));
@@ -323,9 +319,9 @@ public class PrimaryShardAllocatorTests extends OpenSearchAllocationTestCase {
             allocId2,
             allocId3
         );
-        testAllocator.addData(node1, allocId1, false, new ReplicationCheckpoint(shardId, 10, 101, 1, Codec.getDefault().getName()));
-        testAllocator.addData(node2, allocId2, false, new ReplicationCheckpoint(shardId, 20, 120, 3, Codec.getDefault().getName()));
-        testAllocator.addData(node3, allocId3, false, new ReplicationCheckpoint(shardId, 20, 120, 2, Codec.getDefault().getName()));
+        testAllocator.addData(node1, allocId1, false, new ReplicationCheckpoint(shardId, 10, 101, 1));
+        testAllocator.addData(node2, allocId2, false, new ReplicationCheckpoint(shardId, 20, 120, 3));
+        testAllocator.addData(node3, allocId3, false, new ReplicationCheckpoint(shardId, 20, 120, 2));
         allocateAllUnassigned(allocation);
         assertThat(allocation.routingNodesChanged(), equalTo(true));
         assertThat(allocation.routingNodes().unassigned().ignored().isEmpty(), equalTo(true));
@@ -355,9 +351,9 @@ public class PrimaryShardAllocatorTests extends OpenSearchAllocationTestCase {
             allocId1,
             allocId3
         );
-        testAllocator.addData(node1, allocId1, false, new ReplicationCheckpoint(shardId, 10, 101, 1, Codec.getDefault().getName()));
-        testAllocator.addData(node2, allocId2, false, new ReplicationCheckpoint(shardId, 20, 120, 2, Codec.getDefault().getName()));
-        testAllocator.addData(node3, allocId3, false, new ReplicationCheckpoint(shardId, 15, 120, 2, Codec.getDefault().getName()));
+        testAllocator.addData(node1, allocId1, false, new ReplicationCheckpoint(shardId, 10, 101, 1));
+        testAllocator.addData(node2, allocId2, false, new ReplicationCheckpoint(shardId, 20, 120, 2));
+        testAllocator.addData(node3, allocId3, false, new ReplicationCheckpoint(shardId, 15, 120, 2));
         allocateAllUnassigned(allocation);
         assertThat(allocation.routingNodesChanged(), equalTo(true));
         assertThat(allocation.routingNodes().unassigned().ignored().isEmpty(), equalTo(true));
@@ -388,9 +384,9 @@ public class PrimaryShardAllocatorTests extends OpenSearchAllocationTestCase {
             allocId2,
             allocId3
         );
-        testAllocator.addData(node1, allocId1, true, new ReplicationCheckpoint(shardId, 10, 101, 1, Codec.getDefault().getName()));
-        testAllocator.addData(node2, allocId2, false, new ReplicationCheckpoint(shardId, 20, 120, 2, Codec.getDefault().getName()));
-        testAllocator.addData(node3, allocId3, false, new ReplicationCheckpoint(shardId, 15, 120, 2, Codec.getDefault().getName()));
+        testAllocator.addData(node1, allocId1, true, new ReplicationCheckpoint(shardId, 10, 101, 1));
+        testAllocator.addData(node2, allocId2, false, new ReplicationCheckpoint(shardId, 20, 120, 2));
+        testAllocator.addData(node3, allocId3, false, new ReplicationCheckpoint(shardId, 15, 120, 2));
         allocateAllUnassigned(allocation);
         assertThat(allocation.routingNodesChanged(), equalTo(true));
         assertThat(allocation.routingNodes().unassigned().ignored().isEmpty(), equalTo(true));
@@ -711,12 +707,19 @@ public class PrimaryShardAllocatorTests extends OpenSearchAllocationTestCase {
             .routingTable(routingTable)
             .nodes(DiscoveryNodes.builder().add(node1).add(node2).add(node3))
             .build();
-        return new RoutingAllocation(allocationDeciders, new RoutingNodes(state, false), state, null, new SnapshotShardSizeInfo(Map.of()) {
-            @Override
-            public Long getShardSize(ShardRouting shardRouting) {
-                return shardSize;
-            }
-        }, System.nanoTime());
+        return new RoutingAllocation(
+            allocationDeciders,
+            new RoutingNodes(state, false),
+            state,
+            null,
+            new SnapshotShardSizeInfo(ImmutableOpenMap.of()) {
+                @Override
+                public Long getShardSize(ShardRouting shardRouting) {
+                    return shardSize;
+                }
+            },
+            System.nanoTime()
+        );
     }
 
     private RoutingAllocation routingAllocationWithOnePrimaryNoReplicas(
@@ -806,27 +809,11 @@ public class PrimaryShardAllocatorTests extends OpenSearchAllocationTestCase {
         }
 
         public TestAllocator addData(DiscoveryNode node, String allocationId, boolean primary) {
-            Settings nodeSettings = Settings.builder().put(Environment.PATH_HOME_SETTING.getKey(), createTempDir()).build();
-            IndexSettings indexSettings = IndexSettingsModule.newIndexSettings("test", nodeSettings);
-            return addData(
-                node,
-                allocationId,
-                primary,
-                ReplicationCheckpoint.empty(shardId, new CodecService(null, indexSettings, null).codec("default").getName()),
-                null
-            );
+            return addData(node, allocationId, primary, ReplicationCheckpoint.empty(shardId), null);
         }
 
         public TestAllocator addData(DiscoveryNode node, String allocationId, boolean primary, @Nullable Exception storeException) {
-            Settings nodeSettings = Settings.builder().put(Environment.PATH_HOME_SETTING.getKey(), createTempDir()).build();
-            IndexSettings indexSettings = IndexSettingsModule.newIndexSettings("test", nodeSettings);
-            return addData(
-                node,
-                allocationId,
-                primary,
-                ReplicationCheckpoint.empty(shardId, new CodecService(null, indexSettings, null).codec("default").getName()),
-                storeException
-            );
+            return addData(node, allocationId, primary, ReplicationCheckpoint.empty(shardId), storeException);
         }
 
         public TestAllocator addData(

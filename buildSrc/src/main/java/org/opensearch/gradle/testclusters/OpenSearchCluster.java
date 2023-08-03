@@ -206,11 +206,6 @@ public class OpenSearchCluster implements TestClusterConfiguration, Named {
     }
 
     @Override
-    public void extension(boolean extensionsEnabled) {
-        nodes.all(each -> each.extension(extensionsEnabled));
-    }
-
-    @Override
     public void plugin(Provider<RegularFile> plugin) {
         nodes.all(each -> each.plugin(plugin));
     }

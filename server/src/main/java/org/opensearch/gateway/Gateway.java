@@ -32,6 +32,8 @@
 
 package org.opensearch.gateway;
 
+import com.carrotsearch.hppc.ObjectFloatHashMap;
+import com.carrotsearch.hppc.cursors.ObjectCursor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.FailedNodeException;
@@ -40,11 +42,9 @@ import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.index.Index;
+import org.opensearch.index.Index;
 
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.function.Function;
 
 /**
@@ -70,7 +70,7 @@ public class Gateway {
     }
 
     public void performStateRecovery(final GatewayStateRecoveredListener listener) throws GatewayException {
-        final String[] nodesIds = clusterService.state().nodes().getClusterManagerNodes().keySet().toArray(new String[0]);
+        final String[] nodesIds = clusterService.state().nodes().getClusterManagerNodes().keys().toArray(String.class);
         logger.trace("performing state recovery from {}", Arrays.toString(nodesIds));
         final TransportNodesListGatewayMetaState.NodesGatewayMetaState nodesState = listGatewayMetaState.list(nodesIds, null).actionGet();
 
@@ -82,7 +82,7 @@ public class Gateway {
             }
         }
 
-        final Map<Index, Float> indices = new HashMap<>();
+        final ObjectFloatHashMap<Index> indices = new ObjectFloatHashMap<>();
         Metadata electedGlobalState = null;
         int found = 0;
         for (final TransportNodesListGatewayMetaState.NodeGatewayMetaState nodeState : nodesState.getNodes()) {
@@ -95,8 +95,8 @@ public class Gateway {
             } else if (nodeState.metadata().version() > electedGlobalState.version()) {
                 electedGlobalState = nodeState.metadata();
             }
-            for (final IndexMetadata cursor : nodeState.metadata().indices().values()) {
-                indices.merge(cursor.getIndex(), 1f, Float::sum);
+            for (final ObjectCursor<IndexMetadata> cursor : nodeState.metadata().indices().values()) {
+                indices.addTo(cursor.value.getIndex(), 1);
             }
         }
         if (found < requiredAllocation) {
@@ -107,7 +107,7 @@ public class Gateway {
         final Metadata.Builder metadataBuilder = Metadata.builder(electedGlobalState).removeAllIndices();
 
         assert !indices.containsKey(null);
-        final Object[] keys = indices.keySet().toArray();
+        final Object[] keys = indices.keys;
         for (int i = 0; i < keys.length; i++) {
             if (keys[i] != null) {
                 final Index index = (Index) keys[i];

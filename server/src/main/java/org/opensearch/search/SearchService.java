@@ -44,6 +44,7 @@ import org.opensearch.action.search.DeletePitInfo;
 import org.opensearch.action.search.DeletePitResponse;
 import org.opensearch.action.search.ListPitInfo;
 import org.opensearch.action.search.PitSearchContextIdForNode;
+import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchShardTask;
 import org.opensearch.action.search.SearchType;
 import org.opensearch.action.search.UpdatePitContextRequest;
@@ -53,10 +54,12 @@ import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.CheckedSupplier;
 import org.opensearch.common.UUIDs;
-import org.opensearch.core.common.breaker.CircuitBreaker;
-import org.opensearch.common.lifecycle.AbstractLifecycleComponent;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.common.breaker.CircuitBreaker;
+import org.opensearch.common.component.AbstractLifecycleComponent;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.lease.Releasable;
+import org.opensearch.common.lease.Releasables;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Setting.Property;
@@ -66,11 +69,9 @@ import org.opensearch.common.util.BigArrays;
 import org.opensearch.common.util.CollectionUtils;
 import org.opensearch.common.util.concurrent.ConcurrentCollections;
 import org.opensearch.common.util.concurrent.ConcurrentMapLong;
-import org.opensearch.common.util.io.IOUtils;
-import org.opensearch.common.lease.Releasable;
-import org.opensearch.common.lease.Releasables;
-import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
-import org.opensearch.core.index.Index;
+import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
+import org.opensearch.core.internal.io.IOUtils;
+import org.opensearch.index.Index;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.IndexSettings;
@@ -85,9 +86,9 @@ import org.opensearch.index.query.Rewriteable;
 import org.opensearch.index.shard.IndexEventListener;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.index.shard.SearchOperationListener;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.indices.IndicesService;
-import org.opensearch.core.indices.breaker.CircuitBreakerService;
+import org.opensearch.indices.breaker.CircuitBreakerService;
 import org.opensearch.indices.cluster.IndicesClusterStateService.AllocatedIndices.IndexRemovalReason;
 import org.opensearch.node.ResponseCollectorService;
 import org.opensearch.script.FieldScript;
@@ -132,7 +133,6 @@ import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.MinAndMax;
 import org.opensearch.search.sort.SortAndFormats;
 import org.opensearch.search.sort.SortBuilder;
-import org.opensearch.search.sort.SortOrder;
 import org.opensearch.search.suggest.Suggest;
 import org.opensearch.search.suggest.completion.CompletionSuggestion;
 import org.opensearch.threadpool.Scheduler.Cancellable;
@@ -247,13 +247,6 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
         Property.NodeScope
     );
 
-    public static final Setting<Boolean> CLUSTER_CONCURRENT_SEGMENT_SEARCH_SETTING = Setting.boolSetting(
-        "search.concurrent_segment_search.enabled",
-        true,
-        Property.Dynamic,
-        Property.NodeScope
-    );
-
     public static final int DEFAULT_SIZE = 10;
     public static final int DEFAULT_FROM = 0;
 
@@ -331,6 +324,7 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
             circuitBreakerService.getBreaker(CircuitBreaker.REQUEST)
         );
         this.indexSearcherExecutor = indexSearcherExecutor;
+
         TimeValue keepAliveInterval = KEEPALIVE_INTERVAL_SETTING.get(settings);
         setKeepAlives(DEFAULT_KEEPALIVE_SETTING.get(settings), MAX_KEEPALIVE_SETTING.get(settings));
         setPitKeepAlives(DEFAULT_KEEPALIVE_SETTING.get(settings), MAX_PIT_KEEPALIVE_SETTING.get(settings));
@@ -1044,8 +1038,7 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
                 lowLevelCancellation,
                 clusterService.state().nodes().getMinNodeVersion(),
                 validate,
-                indexSearcherExecutor,
-                this::aggReduceContextBuilder
+                indexSearcherExecutor
             );
             // we clone the query shard context here just for rewriting otherwise we
             // might end up with incorrect state since we are using now() or script services
@@ -1270,7 +1263,7 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
             context.minimumScore(source.minScore());
         }
         if (source.profile()) {
-            context.setProfilers(new Profilers(context.searcher(), context.isConcurrentSegmentSearchEnabled()));
+            context.setProfilers(new Profilers(context.searcher()));
         }
         if (source.timeout() != null) {
             context.timeout(source.timeout());
@@ -1533,7 +1526,7 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
                 final boolean aliasFilterCanMatch = request.getAliasFilter().getQueryBuilder() instanceof MatchNoneQueryBuilder == false;
                 FieldSortBuilder sortBuilder = FieldSortBuilder.getPrimaryFieldSortOrNull(request.source());
                 MinAndMax<?> minMax = sortBuilder != null ? FieldSortBuilder.getMinMaxOrNull(context, sortBuilder) : null;
-                boolean canMatch;
+                final boolean canMatch;
                 if (canRewriteToMatchNone(request.source())) {
                     QueryBuilder queryBuilder = request.source().query();
                     canMatch = aliasFilterCanMatch && queryBuilder instanceof MatchNoneQueryBuilder == false;
@@ -1541,44 +1534,9 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
                     // null query means match_all
                     canMatch = aliasFilterCanMatch;
                 }
-                final FieldDoc searchAfterFieldDoc = getSearchAfterFieldDoc(request, context);
-                canMatch = canMatch && canMatchSearchAfter(searchAfterFieldDoc, minMax, sortBuilder);
-
                 return new CanMatchResponse(canMatch || hasRefreshPending, minMax);
             }
         }
-    }
-
-    public static boolean canMatchSearchAfter(FieldDoc searchAfter, MinAndMax<?> minMax, FieldSortBuilder primarySortField) {
-        // Check for sort.missing == null, since in case of missing values sort queries, if segment/shard's min/max
-        // is out of search_after range, it still should be printed and hence we should not skip segment/shard.
-        if (searchAfter != null && minMax != null && primarySortField != null && primarySortField.missing() == null) {
-            final Object searchAfterPrimary = searchAfter.fields[0];
-            if (primarySortField.order() == SortOrder.DESC) {
-                if (minMax.compareMin(searchAfterPrimary) > 0) {
-                    // In Desc order, if segment/shard minimum is gt search_after, the segment/shard won't be competitive
-                    return false;
-                }
-            } else {
-                if (minMax.compareMax(searchAfterPrimary) < 0) {
-                    // In ASC order, if segment/shard maximum is lt search_after, the segment/shard won't be competitive
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    private static FieldDoc getSearchAfterFieldDoc(ShardSearchRequest request, QueryShardContext context) throws IOException {
-        if (context != null && request != null && request.source() != null && request.source().sorts() != null) {
-            final List<SortBuilder<?>> sorts = request.source().sorts();
-            final Object[] searchAfter = request.source().searchAfter();
-            final Optional<SortAndFormats> sortOpt = SortBuilder.buildSort(sorts, context);
-            if (sortOpt.isPresent() && !CollectionUtils.isEmpty(searchAfter)) {
-                return SearchAfterBuilder.buildFieldDoc(sortOpt.get(), searchAfter);
-            }
-        }
-        return null;
     }
 
     /**
@@ -1629,22 +1587,22 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
 
     /**
      * Returns a builder for {@link InternalAggregation.ReduceContext}. This
-     * builder retains a reference to the provided {@link SearchSourceBuilder}.
+     * builder retains a reference to the provided {@link SearchRequest}.
      */
-    public InternalAggregation.ReduceContextBuilder aggReduceContextBuilder(SearchSourceBuilder searchSourceBuilder) {
+    public InternalAggregation.ReduceContextBuilder aggReduceContextBuilder(SearchRequest request) {
         return new InternalAggregation.ReduceContextBuilder() {
             @Override
             public InternalAggregation.ReduceContext forPartialReduction() {
                 return InternalAggregation.ReduceContext.forPartialReduction(
                     bigArrays,
                     scriptService,
-                    () -> requestToPipelineTree(searchSourceBuilder)
+                    () -> requestToPipelineTree(request)
                 );
             }
 
             @Override
             public ReduceContext forFinalReduction() {
-                PipelineTree pipelineTree = requestToPipelineTree(searchSourceBuilder);
+                PipelineTree pipelineTree = requestToPipelineTree(request);
                 return InternalAggregation.ReduceContext.forFinalReduction(
                     bigArrays,
                     scriptService,
@@ -1655,11 +1613,11 @@ public class SearchService extends AbstractLifecycleComponent implements IndexEv
         };
     }
 
-    private static PipelineTree requestToPipelineTree(SearchSourceBuilder searchSourceBuilder) {
-        if (searchSourceBuilder == null || searchSourceBuilder.aggregations() == null) {
+    private static PipelineTree requestToPipelineTree(SearchRequest request) {
+        if (request.source() == null || request.source().aggregations() == null) {
             return PipelineTree.EMPTY;
         }
-        return searchSourceBuilder.aggregations().buildPipelineTree();
+        return request.source().aggregations().buildPipelineTree();
     }
 
     /**

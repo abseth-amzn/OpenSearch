@@ -11,7 +11,6 @@ package org.opensearch.index.store.remote.utils.cache;
 import org.opensearch.index.store.remote.utils.cache.stats.CacheStats;
 
 import java.util.function.BiFunction;
-import java.util.function.Predicate;
 
 /**
  * Custom Cache which support typical cache operations (put, get, ...) and it support reference counting per individual key which might
@@ -81,17 +80,7 @@ public interface RefCountedCache<K, V> {
      *
      * @return The total weight of all removed entries.
      */
-    default long prune() {
-        return prune(key -> true);
-    }
-
-    /**
-     * Removes the cache entries which match the predicate criteria for the key
-     * and have a reference count of zero, regardless of current capacity.
-     *
-     * @return The total weight of all removed entries.
-     */
-    long prune(Predicate<K> keyPredicate);
+    long prune();
 
     /**
      * Returns the weighted usage of this cache.

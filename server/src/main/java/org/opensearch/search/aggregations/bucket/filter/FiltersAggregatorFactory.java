@@ -58,7 +58,7 @@ public class FiltersAggregatorFactory extends AggregatorFactory {
 
     private final String[] keys;
     private final Query[] filters;
-    private volatile Weight[] weights;
+    private Weight[] weights;
     private final boolean keyed;
     private final boolean otherBucket;
     private final String otherBucketKey;
@@ -93,33 +93,19 @@ public class FiltersAggregatorFactory extends AggregatorFactory {
      * created if the aggregation collects documents reducing the overhead of
      * the aggregation in the case where no documents are collected.
      *
-     * Note: With concurrent segment search use case, multiple aggregation collectors executing
-     * on different threads will try to fetch the weights. To handle the race condition there is
-     * a synchronization block
+     * Note that as aggregations are initialsed and executed in a serial manner,
+     * no concurrency considerations are necessary here.
      */
     public Weight[] getWeights(SearchContext searchContext) {
-        if (weights != null) {
-            return weights;
-        }
-
-        // This will happen only for the first segment access in the slices. After that for other segments
-        // weights will be non-null and returned from above
-        synchronized (this) {
-            if (weights == null) {
-                try {
-                    final Weight[] filterWeights = new Weight[filters.length];
-                    IndexSearcher contextSearcher = searchContext.searcher();
-                    for (int i = 0; i < filters.length; ++i) {
-                        filterWeights[i] = contextSearcher.createWeight(
-                            contextSearcher.rewrite(filters[i]),
-                            ScoreMode.COMPLETE_NO_SCORES,
-                            1
-                        );
-                    }
-                    weights = filterWeights;
-                } catch (IOException e) {
-                    throw new AggregationInitializationException("Failed to initialze filters for aggregation [" + name() + "]", e);
+        if (weights == null) {
+            try {
+                IndexSearcher contextSearcher = searchContext.searcher();
+                weights = new Weight[filters.length];
+                for (int i = 0; i < filters.length; ++i) {
+                    this.weights[i] = contextSearcher.createWeight(contextSearcher.rewrite(filters[i]), ScoreMode.COMPLETE_NO_SCORES, 1);
                 }
+            } catch (IOException e) {
+                throw new AggregationInitializationException("Failed to initialse filters for aggregation [" + name() + "]", e);
             }
         }
         return weights;

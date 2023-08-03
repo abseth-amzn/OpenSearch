@@ -32,8 +32,8 @@
 
 package org.opensearch.search.aggregations;
 
-import org.opensearch.core.common.ParsingException;
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.ParsingException;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContent;
@@ -69,7 +69,6 @@ import org.opensearch.search.aggregations.bucket.terms.SignificantLongTermsTests
 import org.opensearch.search.aggregations.bucket.terms.SignificantStringTermsTests;
 import org.opensearch.search.aggregations.bucket.terms.StringRareTermsTests;
 import org.opensearch.search.aggregations.bucket.terms.StringTermsTests;
-import org.opensearch.search.aggregations.bucket.terms.UnsignedLongTermsTests;
 import org.opensearch.search.aggregations.metrics.InternalExtendedStatsTests;
 import org.opensearch.search.aggregations.metrics.InternalMaxTests;
 import org.opensearch.search.aggregations.metrics.InternalMedianAbsoluteDeviationTests;
@@ -141,7 +140,6 @@ public class AggregationsTests extends OpenSearchTestCase {
         new InternalDateHistogramTests(),
         new InternalAutoDateHistogramTests(),
         new InternalVariableWidthHistogramTests(),
-        new UnsignedLongTermsTests(),
         new LongTermsTests(),
         new DoubleTermsTests(),
         new StringTermsTests(),

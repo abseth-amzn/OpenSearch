@@ -133,7 +133,7 @@ public class PartitionedRoutingIT extends OpenSearchIntegTestCase {
                                 .nodes()
                                 .getDataNodes()
                                 .values()
-                                .toArray(new DiscoveryNode[0])[0].getName()
+                                .toArray(DiscoveryNode.class)[0].getName()
                         )
                         .put("index.blocks.write", true)
                 )

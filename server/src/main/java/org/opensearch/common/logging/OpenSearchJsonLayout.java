@@ -34,17 +34,15 @@ package org.opensearch.common.logging;
 
 import org.apache.logging.log4j.core.Layout;
 import org.apache.logging.log4j.core.LogEvent;
-import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.config.Node;
 import org.apache.logging.log4j.core.config.plugins.Plugin;
 import org.apache.logging.log4j.core.config.plugins.PluginAttribute;
 import org.apache.logging.log4j.core.config.plugins.PluginBuilderFactory;
-import org.apache.logging.log4j.core.config.plugins.PluginConfiguration;
 import org.apache.logging.log4j.core.config.plugins.PluginFactory;
 import org.apache.logging.log4j.core.layout.AbstractStringLayout;
 import org.apache.logging.log4j.core.layout.ByteBufferDestination;
 import org.apache.logging.log4j.core.layout.PatternLayout;
-import org.opensearch.core.common.Strings;
+import org.opensearch.common.Strings;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -96,18 +94,11 @@ public class OpenSearchJsonLayout extends AbstractStringLayout {
 
     private final PatternLayout patternLayout;
 
-    protected OpenSearchJsonLayout(
-        String typeName,
-        Charset charset,
-        String[] opensearchMessageFields,
-        int maxMessageLength,
-        Configuration configuration
-    ) {
+    protected OpenSearchJsonLayout(String typeName, Charset charset, String[] opensearchMessageFields, int maxMessageLength) {
         super(charset);
         this.patternLayout = PatternLayout.newBuilder()
             .withPattern(pattern(typeName, opensearchMessageFields, maxMessageLength))
             .withAlwaysWriteExceptions(false)
-            .withConfiguration(configuration)
             .build();
     }
 
@@ -182,14 +173,8 @@ public class OpenSearchJsonLayout extends AbstractStringLayout {
     }
 
     @PluginFactory
-    public static OpenSearchJsonLayout createLayout(
-        String type,
-        Charset charset,
-        String[] opensearchmessagefields,
-        int maxMessageLength,
-        Configuration configuration
-    ) {
-        return new OpenSearchJsonLayout(type, charset, opensearchmessagefields, maxMessageLength, configuration);
+    public static OpenSearchJsonLayout createLayout(String type, Charset charset, String[] opensearchmessagefields, int maxMessageLength) {
+        return new OpenSearchJsonLayout(type, charset, opensearchmessagefields, maxMessageLength);
     }
 
     PatternLayout getPatternLayout() {
@@ -217,9 +202,6 @@ public class OpenSearchJsonLayout extends AbstractStringLayout {
         @PluginAttribute(value = "maxmessagelength", defaultInt = 10000)
         private int maxMessageLength;
 
-        @PluginConfiguration
-        private Configuration configuration;
-
         public Builder() {
             setCharset(StandardCharsets.UTF_8);
             setMaxMessageLength(10000);
@@ -228,7 +210,7 @@ public class OpenSearchJsonLayout extends AbstractStringLayout {
         @Override
         public OpenSearchJsonLayout build() {
             String[] split = Strings.isNullOrEmpty(opensearchMessageFields) ? new String[] {} : opensearchMessageFields.split(",");
-            return OpenSearchJsonLayout.createLayout(type, charset, split, maxMessageLength, configuration);
+            return OpenSearchJsonLayout.createLayout(type, charset, split, maxMessageLength);
         }
 
         public Charset getCharset() {
@@ -264,15 +246,6 @@ public class OpenSearchJsonLayout extends AbstractStringLayout {
 
         public B setMaxMessageLength(final int maxMessageLength) {
             this.maxMessageLength = maxMessageLength;
-            return asBuilder();
-        }
-
-        public Configuration getConfiguration() {
-            return configuration;
-        }
-
-        public B setConfiguration(final Configuration configuration) {
-            this.configuration = configuration;
             return asBuilder();
         }
     }

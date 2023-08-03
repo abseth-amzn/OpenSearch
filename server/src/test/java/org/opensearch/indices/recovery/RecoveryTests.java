@@ -48,7 +48,7 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.routing.ShardRouting;
 import org.opensearch.common.UUIDs;
-import org.opensearch.core.common.bytes.BytesArray;
+import org.opensearch.common.bytes.BytesArray;
 import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentType;
@@ -78,7 +78,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
@@ -182,7 +181,6 @@ public class RecoveryTests extends OpenSearchIndexLevelReplicationTestCase {
             orgReplica.flush(new FlushRequest().force(true)); // isolate delete#1 in its own translog generation and lucene segment
             // index #0
             orgReplica.applyIndexOperationOnReplica(
-                UUID.randomUUID().toString(),
                 0,
                 primaryTerm,
                 1,
@@ -192,7 +190,6 @@ public class RecoveryTests extends OpenSearchIndexLevelReplicationTestCase {
             );
             // index #3
             orgReplica.applyIndexOperationOnReplica(
-                UUID.randomUUID().toString(),
                 3,
                 primaryTerm,
                 1,
@@ -204,7 +201,6 @@ public class RecoveryTests extends OpenSearchIndexLevelReplicationTestCase {
             orgReplica.flush(new FlushRequest().force(true).waitIfOngoing(true));
             // index #2
             orgReplica.applyIndexOperationOnReplica(
-                UUID.randomUUID().toString(),
                 2,
                 primaryTerm,
                 1,
@@ -216,7 +212,6 @@ public class RecoveryTests extends OpenSearchIndexLevelReplicationTestCase {
             orgReplica.updateGlobalCheckpointOnReplica(3L, "test");
             // index #5 -> force NoOp #4.
             orgReplica.applyIndexOperationOnReplica(
-                UUID.randomUUID().toString(),
                 5,
                 primaryTerm,
                 1,
@@ -267,7 +262,7 @@ public class RecoveryTests extends OpenSearchIndexLevelReplicationTestCase {
             final String historyUUID = replica.getHistoryUUID();
             Translog.TranslogGeneration translogGeneration = getTranslog(replica).getGeneration();
             shards.removeReplica(replica);
-            replica.close("test", false, false);
+            replica.close("test", false);
             IndexWriterConfig iwc = new IndexWriterConfig(null).setCommitOnClose(false)
                 // we don't want merges to happen here - we call maybe merge on the engine
                 // later once we stared it up otherwise we would need to wait for it here
@@ -391,7 +386,7 @@ public class RecoveryTests extends OpenSearchIndexLevelReplicationTestCase {
             if (randomBoolean()) {
                 shards.flush();
             }
-            replica.close("test", randomBoolean(), false);
+            replica.close("test", randomBoolean());
             replica.store().close();
             final IndexShard newReplica = shards.addReplicaWithExistingPath(replica.shardPath(), replica.routingEntry().currentNodeId());
             shards.recoverReplica(newReplica);
@@ -509,7 +504,7 @@ public class RecoveryTests extends OpenSearchIndexLevelReplicationTestCase {
             }
             shards.syncGlobalCheckpoint();
             shards.promoteReplicaToPrimary(randomFrom(shards.getReplicas())).get();
-            oldPrimary.close("demoted", false, false);
+            oldPrimary.close("demoted", false);
             oldPrimary.store().close();
             oldPrimary = shards.addReplicaWithExistingPath(oldPrimary.shardPath(), oldPrimary.routingEntry().currentNodeId());
             shards.recoverReplica(oldPrimary);

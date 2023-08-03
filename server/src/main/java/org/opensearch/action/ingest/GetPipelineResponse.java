@@ -34,16 +34,16 @@ package org.opensearch.action.ingest;
 
 import org.opensearch.action.ActionResponse;
 import org.opensearch.common.Strings;
-import org.opensearch.core.common.bytes.BytesReference;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.xcontent.StatusToXContentObject;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.core.xcontent.XContentParser.Token;
 import org.opensearch.ingest.PipelineConfiguration;
-import org.opensearch.core.rest.RestStatus;
+import org.opensearch.rest.RestStatus;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -52,7 +52,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
 /**
  * transport response for getting a pipeline
@@ -146,12 +146,7 @@ public class GetPipelineResponse extends ActionResponse implements StatusToXCont
             GetPipelineResponse otherResponse = (GetPipelineResponse) other;
             if (pipelines == null) {
                 return otherResponse.pipelines == null;
-            } else if (otherResponse.pipelines == null) {
-                return false;
             } else {
-                if (otherResponse.pipelines.size() != pipelines.size()) {
-                    return false;
-                }
                 // We need a map here because order does not matter for equality
                 Map<String, PipelineConfiguration> otherPipelineMap = new HashMap<>();
                 for (PipelineConfiguration pipeline : otherResponse.pipelines) {

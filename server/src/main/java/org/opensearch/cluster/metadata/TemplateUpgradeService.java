@@ -32,6 +32,7 @@
 
 package org.opensearch.cluster.metadata;
 
+import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -46,7 +47,8 @@ import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.ClusterStateListener;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.xcontent.ToXContent;
@@ -89,7 +91,7 @@ public class TemplateUpgradeService implements ClusterStateListener {
 
     final AtomicInteger upgradesInProgress = new AtomicInteger();
 
-    private Map<String, IndexTemplateMetadata> lastTemplateMetadata;
+    private ImmutableOpenMap<String, IndexTemplateMetadata> lastTemplateMetadata;
 
     public TemplateUpgradeService(
         Client client,
@@ -129,7 +131,7 @@ public class TemplateUpgradeService implements ClusterStateListener {
             return;
         }
 
-        final Map<String, IndexTemplateMetadata> templates = state.getMetadata().getTemplates();
+        ImmutableOpenMap<String, IndexTemplateMetadata> templates = state.getMetadata().getTemplates();
 
         if (templates == lastTemplateMetadata) {
             // we already checked these sets of templates - no reason to check it again
@@ -223,7 +225,9 @@ public class TemplateUpgradeService implements ClusterStateListener {
                 // Check upgraders are satisfied after the update completed. If they still
                 // report that changes are required, this might indicate a bug or that something
                 // else tinkering with the templates during the upgrade.
-                final Map<String, IndexTemplateMetadata> upgradedTemplates = clusterService.state().getMetadata().getTemplates();
+                final ImmutableOpenMap<String, IndexTemplateMetadata> upgradedTemplates = clusterService.state()
+                    .getMetadata()
+                    .getTemplates();
                 final boolean changesRequired = calculateTemplateChanges(upgradedTemplates).isPresent();
                 if (changesRequired) {
                     logger.warn("Templates are still reported as out of date after the upgrade. The template upgrade will be retried.");
@@ -235,11 +239,13 @@ public class TemplateUpgradeService implements ClusterStateListener {
         }
     }
 
-    Optional<Tuple<Map<String, BytesReference>, Set<String>>> calculateTemplateChanges(final Map<String, IndexTemplateMetadata> templates) {
+    Optional<Tuple<Map<String, BytesReference>, Set<String>>> calculateTemplateChanges(
+        ImmutableOpenMap<String, IndexTemplateMetadata> templates
+    ) {
         // collect current templates
         Map<String, IndexTemplateMetadata> existingMap = new HashMap<>();
-        for (Map.Entry<String, IndexTemplateMetadata> customCursor : templates.entrySet()) {
-            existingMap.put(customCursor.getKey(), customCursor.getValue());
+        for (ObjectObjectCursor<String, IndexTemplateMetadata> customCursor : templates) {
+            existingMap.put(customCursor.key, customCursor.value);
         }
         // upgrade global custom meta data
         Map<String, IndexTemplateMetadata> upgradedMap = indexTemplateMetadataUpgraders.apply(existingMap);

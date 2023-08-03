@@ -58,7 +58,7 @@ public class SpanMatchNoDocsQueryTests extends OpenSearchTestCase {
     public void testSimple() throws Exception {
         SpanMatchNoDocsQuery query = new SpanMatchNoDocsQuery("field", "a good reason");
         assertEquals(query.toString(), "SpanMatchNoDocsQuery(\"a good reason\")");
-        Query rewrite = query.rewrite((IndexSearcher) null);
+        Query rewrite = query.rewrite(null);
         assertTrue(rewrite instanceof SpanMatchNoDocsQuery);
         assertEquals(rewrite.toString(), "SpanMatchNoDocsQuery(\"a good reason\")");
     }
@@ -93,7 +93,7 @@ public class SpanMatchNoDocsQueryTests extends OpenSearchTestCase {
         assertEquals(searcher.count(orQuery), 1);
         hits = searcher.search(orQuery, 1000).scoreDocs;
         assertEquals(1, hits.length);
-        Query rewrite = orQuery.rewrite(searcher);
+        Query rewrite = orQuery.rewrite(ir);
         assertEquals(rewrite, orQuery);
 
         SpanNearQuery nearQuery = new SpanNearQuery(
@@ -104,7 +104,7 @@ public class SpanMatchNoDocsQueryTests extends OpenSearchTestCase {
         assertEquals(searcher.count(nearQuery), 0);
         hits = searcher.search(nearQuery, 1000).scoreDocs;
         assertEquals(0, hits.length);
-        rewrite = nearQuery.rewrite(searcher);
+        rewrite = nearQuery.rewrite(ir);
         assertEquals(rewrite, nearQuery);
 
         iw.close();

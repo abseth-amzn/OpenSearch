@@ -101,7 +101,6 @@ public final class IndexScopedSettings extends AbstractScopedSettings {
                 IndexMetadata.INDEX_DATA_PATH_SETTING,
                 IndexMetadata.INDEX_FORMAT_SETTING,
                 IndexMetadata.INDEX_HIDDEN_SETTING,
-                IndexMetadata.INDEX_REPLICATION_TYPE_SETTING,
                 SearchSlowLog.INDEX_SEARCH_SLOWLOG_THRESHOLD_FETCH_DEBUG_SETTING,
                 SearchSlowLog.INDEX_SEARCH_SLOWLOG_THRESHOLD_FETCH_WARN_SETTING,
                 SearchSlowLog.INDEX_SEARCH_SLOWLOG_THRESHOLD_FETCH_INFO_SETTING,
@@ -188,7 +187,6 @@ public final class IndexScopedSettings extends AbstractScopedSettings {
                 FsDirectoryFactory.INDEX_LOCK_FACTOR_SETTING,
                 Store.FORCE_RAM_TERM_DICT,
                 EngineConfig.INDEX_CODEC_SETTING,
-                EngineConfig.INDEX_CODEC_COMPRESSION_LEVEL_SETTING,
                 EngineConfig.INDEX_OPTIMIZE_AUTO_GENERATED_IDS,
                 IndexMetadata.SETTING_WAIT_FOR_ACTIVE_SHARDS,
                 IndexSettings.DEFAULT_PIPELINE,
@@ -198,16 +196,6 @@ public final class IndexScopedSettings extends AbstractScopedSettings {
                 IndexSettings.INDEX_MERGE_ON_FLUSH_ENABLED,
                 IndexSettings.INDEX_MERGE_ON_FLUSH_MAX_FULL_FLUSH_MERGE_WAIT_TIME,
                 IndexSettings.INDEX_MERGE_ON_FLUSH_POLICY,
-                IndexSettings.DEFAULT_SEARCH_PIPELINE,
-
-                // Settings for Searchable Snapshots
-                IndexSettings.SEARCHABLE_SNAPSHOT_REPOSITORY,
-                IndexSettings.SEARCHABLE_SNAPSHOT_INDEX_ID,
-                IndexSettings.SEARCHABLE_SNAPSHOT_ID_NAME,
-                IndexSettings.SEARCHABLE_SNAPSHOT_ID_UUID,
-
-                // Settings for remote translog
-                IndexSettings.INDEX_REMOTE_TRANSLOG_BUFFER_INTERVAL_SETTING,
 
                 // validate that built-in similarities don't get redefined
                 Setting.groupSetting("index.similarity.", (s) -> {
@@ -232,14 +220,23 @@ public final class IndexScopedSettings extends AbstractScopedSettings {
      * setting should be moved to {@link #BUILT_IN_INDEX_SETTINGS}.
      */
     public static final Map<String, List<Setting>> FEATURE_FLAGGED_INDEX_SETTINGS = Map.of(
+        FeatureFlags.REPLICATION_TYPE,
+        List.of(IndexMetadata.INDEX_REPLICATION_TYPE_SETTING),
         FeatureFlags.REMOTE_STORE,
         List.of(
             IndexMetadata.INDEX_REMOTE_STORE_ENABLED_SETTING,
-            IndexMetadata.INDEX_REMOTE_SEGMENT_STORE_REPOSITORY_SETTING,
-            IndexMetadata.INDEX_REMOTE_TRANSLOG_REPOSITORY_SETTING
+            IndexMetadata.INDEX_REMOTE_STORE_REPOSITORY_SETTING,
+            IndexMetadata.INDEX_REMOTE_TRANSLOG_STORE_ENABLED_SETTING,
+            IndexMetadata.INDEX_REMOTE_TRANSLOG_REPOSITORY_SETTING,
+            IndexMetadata.INDEX_REMOTE_TRANSLOG_BUFFER_INTERVAL_SETTING
         ),
-        FeatureFlags.CONCURRENT_SEGMENT_SEARCH,
-        List.of(IndexSettings.INDEX_CONCURRENT_SEGMENT_SEARCH_SETTING)
+        FeatureFlags.SEARCHABLE_SNAPSHOT,
+        List.of(
+            IndexSettings.SEARCHABLE_SNAPSHOT_REPOSITORY,
+            IndexSettings.SEARCHABLE_SNAPSHOT_INDEX_ID,
+            IndexSettings.SEARCHABLE_SNAPSHOT_ID_NAME,
+            IndexSettings.SEARCHABLE_SNAPSHOT_ID_UUID
+        )
     );
 
     public static final IndexScopedSettings DEFAULT_SCOPED_SETTINGS = new IndexScopedSettings(Settings.EMPTY, BUILT_IN_INDEX_SETTINGS);

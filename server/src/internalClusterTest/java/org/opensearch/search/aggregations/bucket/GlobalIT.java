@@ -83,19 +83,10 @@ public class GlobalIT extends OpenSearchIntegTestCase {
         ensureSearchable();
     }
 
-    public void testWithStatsSubAggregatorAndProfileEnabled() throws Exception {
-        testWithStatsSubAggregator(true);
-    }
-
-    public void testWithStatsSubAggregatorAndProfileDisabled() throws Exception {
-        testWithStatsSubAggregator(false);
-    }
-
-    private void testWithStatsSubAggregator(boolean profileEnabled) throws Exception {
+    public void testWithStatsSubAggregator() throws Exception {
         SearchResponse response = client().prepareSearch("idx")
             .setQuery(QueryBuilders.termQuery("tag", "tag1"))
             .addAggregation(global("global").subAggregation(stats("value_stats").field("value")))
-            .setProfile(profileEnabled)
             .get();
 
         assertSearchResponse(response);

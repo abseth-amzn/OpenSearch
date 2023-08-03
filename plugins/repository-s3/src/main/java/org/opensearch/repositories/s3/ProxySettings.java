@@ -8,10 +8,9 @@
 
 package org.opensearch.repositories.s3;
 
-import org.opensearch.core.common.Strings;
+import com.amazonaws.Protocol;
+import org.opensearch.common.Strings;
 import org.opensearch.common.settings.SettingsException;
-import org.opensearch.repositories.s3.utils.Protocol;
-import software.amazon.awssdk.core.exception.SdkException;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -29,7 +28,7 @@ public class ProxySettings {
 
         private final String name;
 
-        ProxyType(String name) {
+        private ProxyType(String name) {
             this.name = name;
         }
 
@@ -85,7 +84,7 @@ public class ProxySettings {
             return new InetSocketAddress(InetAddress.getByName(host), port);
         } catch (UnknownHostException e) {
             // this error won't be thrown since validation of the host name is in the S3ClientSettings
-            throw SdkException.create("Unknown host", e);
+            throw new RuntimeException(e);
         }
     }
 

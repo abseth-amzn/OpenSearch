@@ -8,6 +8,7 @@
 
 package org.opensearch.search.pit;
 
+import com.carrotsearch.hppc.cursors.ObjectCursor;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -365,7 +366,8 @@ public class PitMultiNodeIT extends OpenSearchIntegTestCase {
         clusterStateRequest.clear().nodes(true).routingTable(true).indices("*");
         ClusterStateResponse clusterStateResponse = client().admin().cluster().state(clusterStateRequest).get();
         final List<DiscoveryNode> nodes = new LinkedList<>();
-        for (final DiscoveryNode node : clusterStateResponse.getState().nodes().getDataNodes().values()) {
+        for (ObjectCursor<DiscoveryNode> cursor : clusterStateResponse.getState().nodes().getDataNodes().values()) {
+            DiscoveryNode node = cursor.value;
             nodes.add(node);
         }
         DiscoveryNode[] disNodesArr = new DiscoveryNode[nodes.size()];
@@ -408,7 +410,11 @@ public class PitMultiNodeIT extends OpenSearchIntegTestCase {
         clusterStateRequest.local(false);
         clusterStateRequest.clear().nodes(true).routingTable(true).indices("*");
         ClusterStateResponse clusterStateResponse = client().admin().cluster().state(clusterStateRequest).get();
-        final List<DiscoveryNode> nodes = new LinkedList<>(clusterStateResponse.getState().nodes().getDataNodes().values());
+        final List<DiscoveryNode> nodes = new LinkedList<>();
+        for (ObjectCursor<DiscoveryNode> cursor : clusterStateResponse.getState().nodes().getDataNodes().values()) {
+            DiscoveryNode node = cursor.value;
+            nodes.add(node);
+        }
         DiscoveryNode[] disNodesArr = new DiscoveryNode[nodes.size()];
         nodes.toArray(disNodesArr);
         return disNodesArr;

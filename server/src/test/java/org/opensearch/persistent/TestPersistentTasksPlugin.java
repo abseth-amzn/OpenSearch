@@ -53,12 +53,12 @@ import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Strings;
-import org.opensearch.common.lifecycle.Lifecycle;
+import org.opensearch.common.component.Lifecycle;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.core.common.io.stream.Writeable;
+import org.opensearch.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.settings.SettingsModule;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.ParseField;
@@ -178,7 +178,7 @@ public class TestPersistentTasksPlugin extends Plugin implements ActionPlugin, P
             executorNodeAttr = in.readOptionalString();
             responseNode = in.readOptionalString();
             testParam = in.readOptionalString();
-            minVersion = in.readVersion();
+            minVersion = Version.readVersion(in);
             feature = Optional.ofNullable(in.readOptionalString());
         }
 
@@ -208,7 +208,7 @@ public class TestPersistentTasksPlugin extends Plugin implements ActionPlugin, P
             out.writeOptionalString(executorNodeAttr);
             out.writeOptionalString(responseNode);
             out.writeOptionalString(testParam);
-            out.writeVersion(minVersion);
+            Version.writeVersion(minVersion, out);
             out.writeOptionalString(feature.orElse(null));
         }
 

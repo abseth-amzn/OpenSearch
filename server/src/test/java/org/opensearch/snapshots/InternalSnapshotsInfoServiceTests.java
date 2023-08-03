@@ -32,6 +32,7 @@
 
 package org.opensearch.snapshots;
 
+import com.carrotsearch.hppc.IntHashSet;
 import org.opensearch.Version;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.cluster.ClusterState;
@@ -53,9 +54,10 @@ import org.opensearch.cluster.routing.allocation.AllocationService;
 import org.opensearch.cluster.service.ClusterApplier;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.UUIDs;
+import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.index.Index;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.Index;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.index.snapshots.IndexShardSnapshotStatus;
 import org.opensearch.repositories.FilterRepository;
 import org.opensearch.repositories.IndexId;
@@ -70,8 +72,6 @@ import org.junit.After;
 import org.junit.Before;
 
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -457,12 +457,12 @@ public class InternalSnapshotsInfoServiceTests extends OpenSearchTestCase {
         final Index index = indexMetadata.getIndex();
 
         final RoutingTable.Builder routingTable = RoutingTable.builder(currentState.routingTable());
-        routingTable.add(IndexRoutingTable.builder(index).initializeAsNewRestore(indexMetadata, recoverySource, new HashSet<>()).build());
+        routingTable.add(IndexRoutingTable.builder(index).initializeAsNewRestore(indexMetadata, recoverySource, new IntHashSet()).build());
 
         final RestoreInProgress.Builder restores = new RestoreInProgress.Builder(
             currentState.custom(RestoreInProgress.TYPE, RestoreInProgress.EMPTY)
         );
-        final Map<ShardId, RestoreInProgress.ShardRestoreStatus> shards = new HashMap<>();
+        final ImmutableOpenMap.Builder<ShardId, RestoreInProgress.ShardRestoreStatus> shards = ImmutableOpenMap.builder();
         for (int i = 0; i < indexMetadata.getNumberOfShards(); i++) {
             shards.put(new ShardId(index, i), new RestoreInProgress.ShardRestoreStatus(clusterService.state().nodes().getLocalNodeId()));
         }
@@ -473,7 +473,7 @@ public class InternalSnapshotsInfoServiceTests extends OpenSearchTestCase {
                 recoverySource.snapshot(),
                 RestoreInProgress.State.INIT,
                 Collections.singletonList(indexName),
-                shards
+                shards.build()
             )
         );
 

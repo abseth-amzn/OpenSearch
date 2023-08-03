@@ -49,22 +49,22 @@ import org.apache.lucene.store.DataOutput;
 import org.apache.lucene.tests.store.MockDirectoryWrapper;
 import org.apache.lucene.tests.util.LineFileDocs;
 import org.apache.lucene.tests.util.LuceneTestCase;
-import org.opensearch.core.Assertions;
+import org.opensearch.Assertions;
 import org.opensearch.Version;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.Randomness;
 import org.opensearch.common.Strings;
 import org.opensearch.common.UUIDs;
-import org.opensearch.core.common.bytes.BytesArray;
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.bytes.BytesArray;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.bytes.ReleasableBytesReference;
 import org.opensearch.common.collect.Tuple;
-import org.opensearch.core.util.FileSystemUtils;
+import org.opensearch.common.io.FileSystemUtils;
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.common.unit.ByteSizeUnit;
-import org.opensearch.core.common.unit.ByteSizeValue;
+import org.opensearch.common.unit.ByteSizeUnit;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.util.concurrent.AbstractRunnable;
 import org.opensearch.common.util.concurrent.ConcurrentCollections;
 import org.opensearch.common.util.concurrent.ReleasableLock;
@@ -72,7 +72,7 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.common.util.io.IOUtils;
+import org.opensearch.core.internal.io.IOUtils;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.VersionType;
 import org.opensearch.index.engine.Engine;
@@ -86,7 +86,7 @@ import org.opensearch.index.mapper.Uid;
 import org.opensearch.index.seqno.LocalCheckpointTracker;
 import org.opensearch.index.seqno.LocalCheckpointTrackerTests;
 import org.opensearch.index.seqno.SequenceNumbers;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.index.translog.Translog.Location;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.IndexSettingsModule;
@@ -1541,91 +1541,6 @@ public class LocalTranslogTests extends OpenSearchTestCase {
         }
     }
 
-    public void testTranslogWriterFsyncedWithLocalTranslog() throws IOException {
-        Path tempDir = createTempDir();
-        final TranslogConfig temp = getTranslogConfig(tempDir);
-        final TranslogConfig config = new TranslogConfig(
-            temp.getShardId(),
-            temp.getTranslogPath(),
-            temp.getIndexSettings(),
-            temp.getBigArrays(),
-            new ByteSizeValue(1, ByteSizeUnit.KB)
-        );
-
-        final Set<Long> persistedSeqNos = new HashSet<>();
-        final AtomicInteger translogFsyncCalls = new AtomicInteger();
-        final AtomicInteger checkpointFsyncCalls = new AtomicInteger();
-
-        final ChannelFactory channelFactory = (file, openOption) -> {
-            FileChannel delegate = FileChannel.open(file, openOption);
-            boolean success = false;
-            try {
-                // don't do partial writes for checkpoints we rely on the fact that the bytes are written as an atomic operation
-                final boolean isCkpFile = file.getFileName().toString().endsWith(".ckp");
-
-                final FileChannel channel;
-                if (isCkpFile) {
-                    channel = new FilterFileChannel(delegate) {
-                        @Override
-                        public void force(boolean metaData) throws IOException {
-                            checkpointFsyncCalls.incrementAndGet();
-                        }
-                    };
-                } else {
-                    channel = new FilterFileChannel(delegate) {
-
-                        @Override
-                        public void force(boolean metaData) throws IOException {
-                            translogFsyncCalls.incrementAndGet();
-                        }
-                    };
-                }
-                success = true;
-                return channel;
-            } finally {
-                if (success == false) {
-                    IOUtils.closeWhileHandlingException(delegate);
-                }
-            }
-        };
-
-        String translogUUID = Translog.createEmptyTranslog(
-            config.getTranslogPath(),
-            SequenceNumbers.NO_OPS_PERFORMED,
-            shardId,
-            channelFactory,
-            primaryTerm.get()
-        );
-
-        try (
-            Translog translog = new LocalTranslog(
-                config,
-                translogUUID,
-                new DefaultTranslogDeletionPolicy(-1, -1, 0),
-                () -> SequenceNumbers.NO_OPS_PERFORMED,
-                primaryTerm::get,
-                persistedSeqNos::add
-            ) {
-                @Override
-                ChannelFactory getChannelFactory() {
-                    return channelFactory;
-                }
-            }
-        ) {
-            TranslogWriter writer = translog.getCurrent();
-            byte[] bytes = new byte[256];
-            writer.add(ReleasableBytesReference.wrap(new BytesArray(bytes)), 1);
-            writer.add(ReleasableBytesReference.wrap(new BytesArray(bytes)), 2);
-            writer.add(ReleasableBytesReference.wrap(new BytesArray(bytes)), 3);
-            writer.add(ReleasableBytesReference.wrap(new BytesArray(bytes)), 4);
-            writer.sync();
-            assertEquals(4, checkpointFsyncCalls.get());
-            assertEquals(3, translogFsyncCalls.get());
-            // Sequence numbers are marked as persisted after sync
-            assertThat(persistedSeqNos, contains(1L, 2L, 3L, 4L));
-        }
-    }
-
     public void testTranslogWriterDoesNotBlockAddsOnWrite() throws IOException, InterruptedException {
         Path tempDir = createTempDir();
         final TranslogConfig config = getTranslogConfig(tempDir);
@@ -2989,9 +2904,7 @@ public class LocalTranslogTests extends OpenSearchTestCase {
             void deleteReaderFiles(TranslogReader reader) {
                 if (fail.fail()) {
                     // simulate going OOM and dying just at the wrong moment.
-                    RuntimeException e = new RuntimeException("simulated");
-                    tragedy.setTragicException(e);
-                    throw e;
+                    throw new RuntimeException("simulated");
                 } else {
                     super.deleteReaderFiles(reader);
                 }
@@ -3313,13 +3226,13 @@ public class LocalTranslogTests extends OpenSearchTestCase {
                     syncedDocs.addAll(unsynced);
                     unsynced.clear();
                 } catch (TranslogException | MockDirectoryWrapper.FakeIOException ex) {
-                    assertEquals(ex, failableTLog.getTragicException());
+                    assertEquals(failableTLog.getTragicException(), ex);
                 } catch (IOException ex) {
                     assertEquals(ex.getMessage(), "__FAKE__ no space left on device");
-                    assertEquals(ex, failableTLog.getTragicException());
+                    assertEquals(failableTLog.getTragicException(), ex);
                 } catch (RuntimeException ex) {
                     assertEquals(ex.getMessage(), "simulated");
-                    assertEquals(ex, failableTLog.getTragicException());
+                    assertEquals(failableTLog.getTragicException(), ex);
                 } finally {
                     Checkpoint checkpoint = Translog.readCheckpoint(config.getTranslogPath());
                     if (checkpoint.numOps == unsynced.size() + syncedDocs.size()) {

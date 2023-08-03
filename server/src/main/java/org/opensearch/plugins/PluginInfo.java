@@ -34,10 +34,10 @@ package org.opensearch.plugins;
 
 import org.opensearch.Version;
 import org.opensearch.bootstrap.JarHell;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.core.common.io.stream.Writeable;
-import org.opensearch.core.common.Strings;
+import org.opensearch.common.Strings;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 
@@ -154,7 +154,7 @@ public class PluginInfo implements Writeable, ToXContentObject {
         this.name = in.readString();
         this.description = in.readString();
         this.version = in.readString();
-        this.opensearchVersion = in.readVersion();
+        this.opensearchVersion = Version.readVersion(in);
         this.javaVersion = in.readString();
         this.classname = in.readString();
         this.customFolderName = in.readString();
@@ -167,7 +167,7 @@ public class PluginInfo implements Writeable, ToXContentObject {
         out.writeString(name);
         out.writeString(description);
         out.writeString(version);
-        out.writeVersion(opensearchVersion);
+        Version.writeVersion(opensearchVersion, out);
         out.writeString(javaVersion);
         out.writeString(classname);
         if (customFolderName != null) {

@@ -17,11 +17,10 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.CancellableThreads;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.IndexService;
-import org.opensearch.index.codec.CodecService;
 import org.opensearch.index.engine.NRTReplicationEngineFactory;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.index.shard.IndexShardTestCase;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.indices.IndicesService;
 import org.opensearch.indices.recovery.FileChunkWriter;
 import org.opensearch.indices.recovery.RecoverySettings;
@@ -74,13 +73,10 @@ public class OngoingSegmentReplicationsTests extends IndexShardTestCase {
 
         ShardId testShardId = primary.shardId();
 
-        CodecService codecService = new CodecService(null, getEngine(primary).config().getIndexSettings(), null);
-        String defaultCodecName = codecService.codec(CodecService.DEFAULT_CODEC).getName();
-
         // This mirrors the creation of the ReplicationCheckpoint inside CopyState
-        testCheckpoint = new ReplicationCheckpoint(testShardId, primary.getOperationPrimaryTerm(), 0L, 0L, defaultCodecName);
+        testCheckpoint = new ReplicationCheckpoint(testShardId, primary.getOperationPrimaryTerm(), 0L, 0L);
         IndexService mockIndexService = mock(IndexService.class);
-        when(mockIndicesService.indexServiceSafe(testShardId.getIndex())).thenReturn(mockIndexService);
+        when(mockIndicesService.indexService(testShardId.getIndex())).thenReturn(mockIndexService);
         when(mockIndexService.getShard(testShardId.id())).thenReturn(primary);
 
         TransportService transportService = mock(TransportService.class);
@@ -402,39 +398,5 @@ public class OngoingSegmentReplicationsTests extends IndexShardTestCase {
         assertEquals(0, replications.size());
         assertEquals(0, replications.cachedCopyStateSize());
         closeShards(replica_2);
-    }
-
-    public void testPrepareForReplicationAlreadyReplicating() throws IOException {
-        OngoingSegmentReplications replications = new OngoingSegmentReplications(mockIndicesService, recoverySettings);
-        final String replicaAllocationId = replica.routingEntry().allocationId().getId();
-        final CheckpointInfoRequest request = new CheckpointInfoRequest(1L, replicaAllocationId, primaryDiscoveryNode, testCheckpoint);
-
-        final CopyState copyState = replications.prepareForReplication(request, mock(FileChunkWriter.class));
-
-        final SegmentReplicationSourceHandler handler = replications.getHandlers().get(replicaAllocationId);
-        assertEquals(handler.getCopyState(), copyState);
-        assertEquals(1, copyState.refCount());
-
-        ReplicationCheckpoint secondCheckpoint = new ReplicationCheckpoint(
-            testCheckpoint.getShardId(),
-            testCheckpoint.getPrimaryTerm(),
-            testCheckpoint.getSegmentsGen(),
-            testCheckpoint.getSegmentInfosVersion() + 1,
-            testCheckpoint.getCodec()
-        );
-
-        final CheckpointInfoRequest secondRequest = new CheckpointInfoRequest(
-            1L,
-            replicaAllocationId,
-            primaryDiscoveryNode,
-            secondCheckpoint
-        );
-
-        final CopyState secondCopyState = replications.prepareForReplication(secondRequest, mock(FileChunkWriter.class));
-        final SegmentReplicationSourceHandler secondHandler = replications.getHandlers().get(replicaAllocationId);
-        assertEquals(secondHandler.getCopyState(), secondCopyState);
-        assertEquals("New copy state is incref'd", 1, secondCopyState.refCount());
-        assertEquals("Old copy state is cleaned up", 0, copyState.refCount());
-
     }
 }

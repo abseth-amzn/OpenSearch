@@ -33,8 +33,7 @@
 package org.opensearch.index.shard;
 
 import org.opensearch.cluster.metadata.IndexMetadata;
-import org.opensearch.core.index.shard.ShardId;
-import org.opensearch.core.index.Index;
+import org.opensearch.index.Index;
 import org.opensearch.test.OpenSearchTestCase;
 
 public class ShardIdTests extends OpenSearchTestCase {

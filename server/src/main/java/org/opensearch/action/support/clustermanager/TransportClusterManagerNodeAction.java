@@ -53,11 +53,10 @@ import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.metadata.ProcessClusterEventTimeoutException;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
-import org.opensearch.cluster.service.ClusterManagerTaskThrottler;
 import org.opensearch.cluster.service.ClusterManagerThrottlingException;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.Writeable;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.discovery.ClusterManagerNotDiscoveredException;
 import org.opensearch.node.NodeClosedException;
@@ -179,18 +178,17 @@ public abstract class TransportClusterManagerNodeAction<Request extends ClusterM
         private ClusterStateObserver observer;
         private final long startTime;
         private final Task task;
+        private static final int BASE_DELAY_MILLIS = 10;
+        private static final int MAX_DELAY_MILLIS = 5000;
 
         AsyncSingleAction(Task task, Request request, ActionListener<Response> listener) {
             super(
                 logger,
                 threadPool,
-                ClusterManagerTaskThrottler.getBaseDelayForRetry(),
+                TimeValue.timeValueMillis(BASE_DELAY_MILLIS),
                 request.clusterManagerNodeTimeout,
                 listener,
-                BackoffPolicy.exponentialEqualJitterBackoff(
-                    ClusterManagerTaskThrottler.getBaseDelayForRetry().millis(),
-                    ClusterManagerTaskThrottler.getMaxDelayForRetry().millis()
-                ),
+                BackoffPolicy.exponentialEqualJitterBackoff(BASE_DELAY_MILLIS, MAX_DELAY_MILLIS),
                 ThreadPool.Names.SAME
             );
             this.task = task;

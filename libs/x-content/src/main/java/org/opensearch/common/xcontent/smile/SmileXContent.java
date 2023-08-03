@@ -35,8 +35,6 @@ package org.opensearch.common.xcontent.smile;
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.StreamReadConstraints;
-import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.dataformat.smile.SmileFactory;
 import com.fasterxml.jackson.dataformat.smile.SmileGenerator;
 import org.opensearch.core.xcontent.DeprecationHandler;
@@ -58,9 +56,6 @@ import java.util.Set;
  * A Smile based content implementation using Jackson.
  */
 public class SmileXContent implements XContent {
-    public static final int DEFAULT_MAX_STRING_LEN = Integer.parseInt(
-        System.getProperty("opensearch.xcontent.string.length.max", "50000000" /* ~50 Mb */)
-    );
 
     public static XContentBuilder contentBuilder() throws IOException {
         return XContentBuilder.builder(smileXContent);
@@ -77,8 +72,6 @@ public class SmileXContent implements XContent {
         // Do not automatically close unclosed objects/arrays in com.fasterxml.jackson.dataformat.smile.SmileGenerator#close() method
         smileFactory.configure(JsonGenerator.Feature.AUTO_CLOSE_JSON_CONTENT, false);
         smileFactory.configure(JsonParser.Feature.STRICT_DUPLICATE_DETECTION, true);
-        smileFactory.setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(DEFAULT_MAX_STRING_LEN).build());
-        smileFactory.configure(StreamReadFeature.USE_FAST_DOUBLE_PARSER.mappedFeature(), true);
         smileXContent = new SmileXContent();
     }
 

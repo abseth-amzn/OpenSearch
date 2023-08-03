@@ -72,8 +72,8 @@ import io.netty.handler.codec.http2.InboundHttp2ToHttpAdapterBuilder;
 import io.netty.util.AttributeKey;
 
 import org.opensearch.common.collect.Tuple;
-import org.opensearch.core.common.unit.ByteSizeUnit;
-import org.opensearch.core.common.unit.ByteSizeValue;
+import org.opensearch.common.unit.ByteSizeUnit;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.NettyAllocator;
 
@@ -176,15 +176,13 @@ class Netty4HttpClient implements Closeable {
         List<Tuple<String, CharSequence>> urisAndBodies
     ) throws InterruptedException {
         List<HttpRequest> requests = new ArrayList<>(urisAndBodies.size());
-        for (int i = 0; i < urisAndBodies.size(); ++i) {
-            final Tuple<String, CharSequence> uriAndBody = urisAndBodies.get(i);
+        for (Tuple<String, CharSequence> uriAndBody : urisAndBodies) {
             ByteBuf content = Unpooled.copiedBuffer(uriAndBody.v2(), StandardCharsets.UTF_8);
             HttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, method, uriAndBody.v1(), content);
             request.headers().add(HttpHeaderNames.HOST, "localhost");
             request.headers().add(HttpHeaderNames.CONTENT_LENGTH, content.readableBytes());
             request.headers().add(HttpHeaderNames.CONTENT_TYPE, "application/json");
             request.headers().add(HttpConversionUtil.ExtensionHeaderNames.SCHEME.text(), "http");
-            request.headers().add("X-Opaque-ID", String.valueOf(i));
             requests.add(request);
         }
         return sendRequests(remoteAddress, requests);
@@ -213,7 +211,7 @@ class Netty4HttpClient implements Closeable {
 
         } finally {
             if (channelFuture != null) {
-                channelFuture.channel().close().awaitUninterruptibly();
+                channelFuture.channel().close().sync();
             }
         }
 
@@ -370,7 +368,7 @@ class Netty4HttpClient implements Closeable {
             request.headers().add(HttpHeaderNames.HOST, "localhost");
             request.headers().add(HttpConversionUtil.ExtensionHeaderNames.SCHEME.text(), "http");
 
-            ctx.channel().attr(AttributeKey.valueOf("upgrade")).set(true);
+            ctx.channel().attr(AttributeKey.newInstance("upgrade")).set(true);
             ctx.writeAndFlush(request);
             ctx.fireChannelActive();
 

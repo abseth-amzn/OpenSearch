@@ -8,7 +8,7 @@
 
 package org.opensearch.index.translog.transfer;
 
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.io.IOException;
@@ -34,8 +34,7 @@ public class FileTransferTrackerTests extends OpenSearchTestCase {
         try (
             FileSnapshot.TransferFileSnapshot transferFileSnapshot = new FileSnapshot.TransferFileSnapshot(
                 testFile,
-                randomNonNegativeLong(),
-                null
+                randomNonNegativeLong()
             )
         ) {
             fileTransferTracker.onSuccess(transferFileSnapshot);
@@ -59,13 +58,11 @@ public class FileTransferTrackerTests extends OpenSearchTestCase {
         try (
             FileSnapshot.TransferFileSnapshot transferFileSnapshot = new FileSnapshot.TransferFileSnapshot(
                 testFile,
-                randomNonNegativeLong(),
-                null
+                randomNonNegativeLong()
             );
             FileSnapshot.TransferFileSnapshot transferFileSnapshot2 = new FileSnapshot.TransferFileSnapshot(
                 testFile2,
-                randomNonNegativeLong(),
-                null
+                randomNonNegativeLong()
             )
         ) {
 
@@ -85,8 +82,7 @@ public class FileTransferTrackerTests extends OpenSearchTestCase {
         try (
             FileSnapshot.TransferFileSnapshot transferFileSnapshot = new FileSnapshot.TransferFileSnapshot(
                 testFile,
-                randomNonNegativeLong(),
-                null
+                randomNonNegativeLong()
             );
 
         ) {

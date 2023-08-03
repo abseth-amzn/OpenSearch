@@ -40,10 +40,6 @@ import java.security.GeneralSecurityException;
 import java.util.EnumSet;
 import java.util.Set;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.opensearch.core.common.settings.SecureString;
-
 /**
  * A secure setting.
  *
@@ -165,17 +161,7 @@ public abstract class SecureSetting<T> extends Setting<T> {
      * @see #secureString(String, Setting, Property...)
      */
     public static Setting<SecureString> insecureString(String name) {
-        return insecureString(name, null, false);
-    }
-
-    /**
-     * A setting which contains a sensitive string, but usage is logged when found outside secure settings, regardless
-     * of the opensearch.allow_insecure_settings value. Typically. this is used when migrating old legacy settings
-     * to secure variants while preserving existing functionality.
-     * @see #insecureString(String)
-     */
-    public static Setting<SecureString> insecureString(String name, String secureName, boolean allowWithWarning) {
-        return new InsecureStringSetting(name, secureName, allowWithWarning);
+        return new InsecureStringSetting(name);
     }
 
     /**
@@ -220,39 +206,21 @@ public abstract class SecureSetting<T> extends Setting<T> {
      * @opensearch.internal
      */
     private static class InsecureStringSetting extends Setting<SecureString> {
-        private static final Logger LOG = LogManager.getLogger(InsecureStringSetting.class);
         private final String name;
-        private final String secureName;
-        private final boolean allowWithWarning;
 
-        private boolean warningLogged;
-
-        private InsecureStringSetting(String name, String secureName, boolean allowWithWarning) {
+        private InsecureStringSetting(String name) {
             super(name, "", SecureString::new, Property.Deprecated, Property.Filtered, Property.NodeScope);
             this.name = name;
-            this.secureName = secureName;
-            this.allowWithWarning = allowWithWarning;
         }
 
         @Override
         public SecureString get(Settings settings) {
-            if (exists(settings)) {
-                logUsage();
-
-                if (ALLOW_INSECURE_SETTINGS == false && this.allowWithWarning == false) {
-                    throw new IllegalArgumentException(
-                        "Setting [" + name + "] is insecure, " + "but property [allow_insecure_settings] is not set"
-                    );
-                }
+            if (ALLOW_INSECURE_SETTINGS == false && exists(settings)) {
+                throw new IllegalArgumentException(
+                    "Setting [" + name + "] is insecure, " + "but property [allow_insecure_settings] is not set"
+                );
             }
             return super.get(settings);
-        }
-
-        private synchronized void logUsage() {
-            if (!this.warningLogged) {
-                LOG.warn("Setting [{}] is insecure, but a secure variant [{}] is advised to be used instead", this.name, this.secureName);
-                this.warningLogged = true;
-            }
         }
     }
 

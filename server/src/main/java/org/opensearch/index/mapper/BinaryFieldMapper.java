@@ -32,14 +32,13 @@
 
 package org.opensearch.index.mapper;
 
-import org.apache.lucene.document.InvertableType;
+import com.carrotsearch.hppc.ObjectArrayList;
 import org.apache.lucene.document.StoredField;
-import org.apache.lucene.document.StoredValue;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.OpenSearchException;
-import org.opensearch.core.common.bytes.BytesArray;
-import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.common.bytes.BytesArray;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.util.CollectionUtils;
 import org.opensearch.core.xcontent.XContentParser;
@@ -53,7 +52,6 @@ import org.opensearch.search.lookup.SearchLookup;
 
 import java.io.IOException;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
@@ -242,48 +240,39 @@ public class BinaryFieldMapper extends ParametrizedFieldMapper {
      */
     public static class CustomBinaryDocValuesField extends CustomDocValuesField {
 
-        private final ArrayList<byte[]> bytesList;
+        private final ObjectArrayList<byte[]> bytesList;
+
+        private int totalSize = 0;
 
         public CustomBinaryDocValuesField(String name, byte[] bytes) {
             super(name);
-            bytesList = new ArrayList<>();
+            bytesList = new ObjectArrayList<>();
             add(bytes);
         }
 
         public void add(byte[] bytes) {
             bytesList.add(bytes);
+            totalSize += bytes.length;
         }
 
         @Override
         public BytesRef binaryValue() {
             try {
-                // sort and dedup in place
-                CollectionUtils.sortAndDedup(bytesList, Arrays::compareUnsigned);
-                int size = bytesList.stream().map(b -> b.length).reduce(0, Integer::sum);
-                int length = bytesList.size();
-                try (BytesStreamOutput out = new BytesStreamOutput(size + (length + 1) * 5)) {
-                    out.writeVInt(length);  // write total number of values
-                    for (byte[] value : bytesList) {
-                        int valueLength = value.length;
-                        out.writeVInt(valueLength);
-                        out.writeBytes(value, 0, valueLength);
-                    }
-                    return out.bytes().toBytesRef();
+                CollectionUtils.sortAndDedup(bytesList);
+                int size = bytesList.size();
+                BytesStreamOutput out = new BytesStreamOutput(totalSize + (size + 1) * 5);
+                out.writeVInt(size);  // write total number of values
+                for (int i = 0; i < size; i++) {
+                    final byte[] value = bytesList.get(i);
+                    int valueLength = value.length;
+                    out.writeVInt(valueLength);
+                    out.writeBytes(value, 0, valueLength);
                 }
+                return out.bytes().toBytesRef();
             } catch (IOException e) {
                 throw new OpenSearchException("Failed to get binary value", e);
             }
 
-        }
-
-        @Override
-        public StoredValue storedValue() {
-            return null;
-        }
-
-        @Override
-        public InvertableType invertableType() {
-            return InvertableType.BINARY;
         }
     }
 }

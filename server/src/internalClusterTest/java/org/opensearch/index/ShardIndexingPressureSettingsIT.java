@@ -22,11 +22,10 @@ import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.routing.ShardRouting;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.collect.Tuple;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.common.lease.Releasable;
-import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
-import org.opensearch.core.index.Index;
-import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
+import org.opensearch.index.shard.ShardId;
 import org.opensearch.indices.IndicesService;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
@@ -921,16 +920,7 @@ public class ShardIndexingPressureSettingsIT extends OpenSearchIntegTestCase {
     }
 
     private String getCoordinatingOnlyNode() {
-        return client().admin()
-            .cluster()
-            .prepareState()
-            .get()
-            .getState()
-            .nodes()
-            .getCoordinatingOnlyNodes()
-            .values()
-            .iterator()
-            .next()
+        return client().admin().cluster().prepareState().get().getState().nodes().getCoordinatingOnlyNodes().iterator().next().value
             .getName();
     }
 
