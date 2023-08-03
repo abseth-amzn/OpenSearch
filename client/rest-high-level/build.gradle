@@ -37,8 +37,10 @@ apply plugin: 'opensearch.rest-test'
 apply plugin: 'opensearch.publish'
 apply plugin: 'opensearch.rest-resources'
 
-group = 'org.opensearch.client'
-archivesBaseName = 'opensearch-rest-high-level-client'
+base {
+  group = 'org.opensearch.client'
+  archivesBaseName = 'opensearch-rest-high-level-client'
+}
 
 restResources {
   //we need to copy the yaml spec so we can check naming (see RestHighlevelClientTests#testApiNamingConventions)
@@ -103,6 +105,7 @@ testClusters.all {
   extraConfigFile nodeCert.name, nodeCert
   extraConfigFile nodeTrustStore.name, nodeTrustStore
   extraConfigFile pkiTrustCert.name, pkiTrustCert
+
 }
 
 thirdPartyAudit.ignoreMissingClasses(

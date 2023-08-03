@@ -48,14 +48,15 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.CheckedFunction;
 import org.opensearch.common.SetOnce;
 import org.opensearch.common.TriFunction;
-import org.opensearch.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.common.logging.DeprecationLogger;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Setting.Property;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.BigArrays;
+import org.opensearch.core.index.Index;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
-import org.opensearch.core.internal.io.IOUtils;
+import org.opensearch.common.util.io.IOUtils;
 import org.opensearch.env.NodeEnvironment;
 import org.opensearch.index.analysis.AnalysisRegistry;
 import org.opensearch.index.analysis.IndexAnalyzers;
@@ -75,7 +76,7 @@ import org.opensearch.index.store.remote.directory.RemoteSnapshotDirectoryFactor
 import org.opensearch.index.store.remote.filecache.FileCache;
 import org.opensearch.index.translog.TranslogFactory;
 import org.opensearch.indices.IndicesQueryCache;
-import org.opensearch.indices.breaker.CircuitBreakerService;
+import org.opensearch.core.indices.breaker.CircuitBreakerService;
 import org.opensearch.indices.fielddata.cache.IndicesFieldDataCache;
 import org.opensearch.indices.mapper.MapperRegistry;
 import org.opensearch.indices.recovery.RecoveryState;
@@ -503,7 +504,7 @@ public final class IndexModule {
         NamedWriteableRegistry namedWriteableRegistry,
         BooleanSupplier idFieldDataEnabled,
         ValuesSourceRegistry valuesSourceRegistry,
-        IndexStorePlugin.RemoteDirectoryFactory remoteDirectoryFactory,
+        IndexStorePlugin.DirectoryFactory remoteDirectoryFactory,
         BiFunction<IndexSettings, ShardRouting, TranslogFactory> translogFactorySupplier
     ) throws IOException {
         final IndexEventListener eventListener = freeze();

@@ -32,8 +32,6 @@
 
 package org.opensearch.gateway;
 
-import com.carrotsearch.hppc.cursors.ObjectCursor;
-
 import org.opensearch.action.admin.cluster.configuration.AddVotingConfigExclusionsAction;
 import org.opensearch.action.admin.cluster.configuration.AddVotingConfigExclusionsRequest;
 import org.opensearch.action.admin.cluster.configuration.ClearVotingConfigExclusionsAction;
@@ -52,13 +50,13 @@ import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.env.NodeEnvironment;
-import org.opensearch.index.Index;
+import org.opensearch.core.index.Index;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.MergePolicyConfig;
 import org.opensearch.index.engine.Engine;
 import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.index.shard.ShardId;
+import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.index.shard.ShardPath;
 import org.opensearch.indices.IndicesService;
 import org.opensearch.indices.recovery.RecoveryState;
@@ -181,8 +179,7 @@ public class RecoveryFromGatewayIT extends OpenSearchIntegTestCase {
         }
         final Map<String, long[]> result = new HashMap<>();
         final ClusterState state = client().admin().cluster().prepareState().get().getState();
-        for (ObjectCursor<IndexMetadata> cursor : state.metadata().indices().values()) {
-            final IndexMetadata indexMetadata = cursor.value;
+        for (final IndexMetadata indexMetadata : state.metadata().indices().values()) {
             final String index = indexMetadata.getIndex().getName();
             final long[] previous = previousTerms.get(index);
             final long[] current = IntStream.range(0, indexMetadata.getNumberOfShards()).mapToLong(indexMetadata::primaryTerm).toArray();

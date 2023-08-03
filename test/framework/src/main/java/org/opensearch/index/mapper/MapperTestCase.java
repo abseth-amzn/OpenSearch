@@ -45,7 +45,7 @@ import org.apache.lucene.search.TermQuery;
 import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.SetOnce;
 import org.opensearch.common.Strings;
-import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentHelper;
@@ -53,7 +53,7 @@ import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.index.fielddata.IndexFieldData;
 import org.opensearch.index.fielddata.IndexFieldDataCache;
 import org.opensearch.index.query.QueryShardContext;
-import org.opensearch.indices.breaker.NoneCircuitBreakerService;
+import org.opensearch.core.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.lookup.SearchLookup;
 
@@ -274,7 +274,7 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         }));
         String type = typeName();
         String[] warnings = new String[] {
-            "Parameter [boost] on field [field] is deprecated and will be removed in 8.0",
+            "Parameter [boost] on field [field] is deprecated and will be removed in 3.0",
             "Parameter [boost] has no effect on type [" + type + "] and will be removed in future" };
         allowedWarnings(warnings);
     }

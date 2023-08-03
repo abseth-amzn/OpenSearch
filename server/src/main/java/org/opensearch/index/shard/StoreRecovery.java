@@ -51,26 +51,29 @@ import org.opensearch.cluster.routing.RecoverySource;
 import org.opensearch.cluster.routing.RecoverySource.SnapshotRecoverySource;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.lucene.Lucene;
-import org.opensearch.common.unit.ByteSizeValue;
+import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.index.Index;
+import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.core.index.Index;
 import org.opensearch.index.engine.Engine;
 import org.opensearch.index.engine.EngineException;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.index.snapshots.IndexShardRestoreFailedException;
+import org.opensearch.index.snapshots.blobstore.RemoteStoreShardShallowCopySnapshot;
+import org.opensearch.index.store.RemoteSegmentStoreDirectory;
+import org.opensearch.index.store.RemoteSegmentStoreDirectoryFactory;
 import org.opensearch.index.store.Store;
-import org.opensearch.index.translog.RemoteFsTranslog;
 import org.opensearch.index.translog.Translog;
-import org.opensearch.index.translog.transfer.FileTransferTracker;
-import org.opensearch.index.translog.transfer.TranslogTransferManager;
 import org.opensearch.indices.recovery.RecoveryState;
 import org.opensearch.indices.replication.common.ReplicationLuceneIndex;
 import org.opensearch.repositories.IndexId;
+import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.Repository;
-import org.opensearch.repositories.blobstore.BlobStoreRepository;
+import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -118,13 +121,13 @@ final class StoreRecovery {
         }
     }
 
-    void recoverFromRemoteStore(final IndexShard indexShard, Repository repository, ActionListener<Boolean> listener) {
+    void recoverFromRemoteStore(final IndexShard indexShard, ActionListener<Boolean> listener) {
         if (canRecover(indexShard)) {
             RecoverySource.Type recoveryType = indexShard.recoveryState().getRecoverySource().getType();
             assert recoveryType == RecoverySource.Type.REMOTE_STORE : "expected remote store recovery type but was: " + recoveryType;
             ActionListener.completeWith(recoveryListener(indexShard, listener), () -> {
                 logger.debug("starting recovery from remote store ...");
-                recoverFromRemoteStore(indexShard, repository);
+                recoverFromRemoteStore(indexShard);
                 return true;
             });
         } else {
@@ -268,7 +271,9 @@ final class StoreRecovery {
             in.copyFrom(new FilterDirectory(from) {
                 @Override
                 public IndexInput openInput(String name, IOContext context) throws IOException {
-                    index.addFileDetail(dest, l, false);
+                    if (index.getFileDetails(dest) == null) {
+                        index.addFileDetail(dest, l, false);
+                    }
                     copies.set(true);
                     final IndexInput input = in.openInput(name, context);
                     return new IndexInput("StatsDirectoryWrapper(" + input.toString() + ")") {
@@ -311,7 +316,7 @@ final class StoreRecovery {
                     };
                 }
             }, src, dest, context);
-            if (copies.get() == false) {
+            if (copies.get() == false && index.getFileDetails(dest) == null) {
                 index.addFileDetail(dest, l, true); // hardlinked - we treat it as reused since the file was already somewhat there
             } else {
                 assert index.getFileDetails(dest) != null : "File [" + dest + "] has no file details";
@@ -341,6 +346,76 @@ final class StoreRecovery {
                 assert recoveryType == RecoverySource.Type.SNAPSHOT : "expected snapshot recovery type: " + recoveryType;
                 SnapshotRecoverySource recoverySource = (SnapshotRecoverySource) indexShard.recoveryState().getRecoverySource();
                 restore(indexShard, repository, recoverySource, recoveryListener(indexShard, listener));
+            } else {
+                listener.onResponse(false);
+            }
+        } catch (Exception e) {
+            listener.onFailure(e);
+        }
+    }
+
+    void recoverFromSnapshotAndRemoteStore(
+        final IndexShard indexShard,
+        Repository repository,
+        RepositoriesService repositoriesService,
+        ActionListener<Boolean> listener,
+        ThreadPool threadPool
+    ) {
+        try {
+            if (canRecover(indexShard)) {
+                indexShard.preRecovery();
+                RecoverySource.Type recoveryType = indexShard.recoveryState().getRecoverySource().getType();
+                assert recoveryType == RecoverySource.Type.SNAPSHOT : "expected snapshot recovery type: " + recoveryType;
+                SnapshotRecoverySource recoverySource = (SnapshotRecoverySource) indexShard.recoveryState().getRecoverySource();
+                final RecoveryState.Translog translogState = indexShard.recoveryState().getTranslog();
+                translogState.totalOperations(0);
+                translogState.totalOperationsOnStart(0);
+                indexShard.prepareForIndexRecovery();
+
+                RemoteStoreShardShallowCopySnapshot shallowCopyShardMetadata = repository.getRemoteStoreShallowCopyShardMetadata(
+                    recoverySource.snapshot().getSnapshotId(),
+                    recoverySource.index(),
+                    shardId
+                );
+
+                long primaryTerm = shallowCopyShardMetadata.getPrimaryTerm();
+                long commitGeneration = shallowCopyShardMetadata.getCommitGeneration();
+                String indexUUID = shallowCopyShardMetadata.getIndexUUID();
+                String remoteStoreRepository = ((SnapshotRecoverySource) indexShard.recoveryState().getRecoverySource())
+                    .sourceRemoteStoreRepository();
+                if (remoteStoreRepository == null) {
+                    remoteStoreRepository = shallowCopyShardMetadata.getRemoteStoreRepository();
+                }
+
+                RemoteSegmentStoreDirectoryFactory directoryFactory = new RemoteSegmentStoreDirectoryFactory(
+                    () -> repositoriesService,
+                    threadPool
+                );
+                RemoteSegmentStoreDirectory sourceRemoteDirectory = (RemoteSegmentStoreDirectory) directoryFactory.newDirectory(
+                    remoteStoreRepository,
+                    indexUUID,
+                    String.valueOf(shardId.id())
+                );
+                indexShard.syncSegmentsFromGivenRemoteSegmentStore(true, sourceRemoteDirectory, primaryTerm, commitGeneration);
+                final Store store = indexShard.store();
+                if (indexShard.indexSettings.isRemoteTranslogStoreEnabled() == false) {
+                    bootstrap(indexShard, store);
+                } else {
+                    bootstrapForSnapshot(indexShard, store);
+                }
+                assert indexShard.shardRouting.primary() : "only primary shards can recover from store";
+                writeEmptyRetentionLeasesFile(indexShard);
+                indexShard.recoveryState().getIndex().setFileDetailsComplete();
+                if (indexShard.indexSettings.isRemoteStoreEnabled()) {
+                    indexShard.openEngineAndSkipTranslogRecoveryFromSnapshot();
+                } else {
+                    indexShard.openEngineAndRecoverFromTranslog();
+                }
+                indexShard.getEngine().fillSeqNoGaps(indexShard.getPendingPrimaryTerm());
+                indexShard.finalizeRecovery();
+                indexShard.postRecovery("restore done");
+
+                listener.onResponse(true);
             } else {
                 listener.onResponse(false);
             }
@@ -439,7 +514,7 @@ final class StoreRecovery {
         });
     }
 
-    private void recoverFromRemoteStore(IndexShard indexShard, Repository repository) throws IndexShardRecoveryException {
+    private void recoverFromRemoteStore(IndexShard indexShard) throws IndexShardRecoveryException {
         final Store remoteStore = indexShard.remoteStore();
         if (remoteStore == null) {
             throw new IndexShardRecoveryException(
@@ -455,13 +530,13 @@ final class StoreRecovery {
         remoteStore.incRef();
         try {
             // Download segments from remote segment store
-            indexShard.syncSegmentsFromRemoteSegmentStore(true);
+            indexShard.syncSegmentsFromRemoteSegmentStore(true, true);
 
             if (store.directory().listAll().length == 0) {
                 store.createEmpty(indexShard.indexSettings().getIndexVersionCreated().luceneVersion);
             }
-            if (repository != null) {
-                syncTranslogFilesFromRemoteTranslog(indexShard, repository);
+            if (indexShard.indexSettings.isRemoteTranslogStoreEnabled()) {
+                indexShard.syncTranslogFilesFromRemoteTranslog();
             } else {
                 bootstrap(indexShard, store);
             }
@@ -478,19 +553,6 @@ final class StoreRecovery {
             store.decRef();
             remoteStore.decRef();
         }
-    }
-
-    private void syncTranslogFilesFromRemoteTranslog(IndexShard indexShard, Repository repository) throws IOException {
-        assert repository instanceof BlobStoreRepository : "repository should be instance of BlobStoreRepository";
-        BlobStoreRepository blobStoreRepository = (BlobStoreRepository) repository;
-        FileTransferTracker fileTransferTracker = new FileTransferTracker(shardId);
-        TranslogTransferManager translogTransferManager = RemoteFsTranslog.buildTranslogTransferManager(
-            blobStoreRepository,
-            indexShard.getThreadPool(),
-            shardId,
-            fileTransferTracker
-        );
-        RemoteFsTranslog.download(translogTransferManager, indexShard.shardPath().resolveTranslog());
     }
 
     /**
@@ -612,10 +674,18 @@ final class StoreRecovery {
         }
         final ActionListener<Void> restoreListener = ActionListener.wrap(v -> {
             final Store store = indexShard.store();
-            bootstrap(indexShard, store);
+            if (indexShard.indexSettings.isRemoteTranslogStoreEnabled() == false) {
+                bootstrap(indexShard, store);
+            } else {
+                bootstrapForSnapshot(indexShard, store);
+            }
             assert indexShard.shardRouting.primary() : "only primary shards can recover from store";
             writeEmptyRetentionLeasesFile(indexShard);
-            indexShard.openEngineAndRecoverFromTranslog();
+            if (indexShard.indexSettings.isRemoteStoreEnabled()) {
+                indexShard.openEngineAndSkipTranslogRecoveryFromSnapshot();
+            } else {
+                indexShard.openEngineAndRecoverFromTranslog();
+            }
             indexShard.getEngine().fillSeqNoGaps(indexShard.getPendingPrimaryTerm());
             indexShard.finalizeRecovery();
             indexShard.postRecovery("restore done");
@@ -657,6 +727,21 @@ final class StoreRecovery {
         } catch (Exception e) {
             restoreListener.onFailure(e);
         }
+    }
+
+    private void bootstrapForSnapshot(final IndexShard indexShard, final Store store) throws IOException {
+        store.bootstrapNewHistory();
+        final SegmentInfos segmentInfos = store.readLastCommittedSegmentsInfo();
+        final long localCheckpoint = Long.parseLong(segmentInfos.userData.get(SequenceNumbers.LOCAL_CHECKPOINT_KEY));
+        String translogUUID = store.readLastCommittedSegmentsInfo().getUserData().get(Translog.TRANSLOG_UUID_KEY);
+        Translog.createEmptyTranslog(
+            indexShard.shardPath().resolveTranslog(),
+            shardId,
+            localCheckpoint,
+            indexShard.getPendingPrimaryTerm(),
+            translogUUID,
+            FileChannel::open
+        );
     }
 
     private void bootstrap(final IndexShard indexShard, final Store store) throws IOException {

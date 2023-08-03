@@ -31,7 +31,7 @@
 
 package org.opensearch.cluster.coordination;
 
-import org.opensearch.Assertions;
+import org.opensearch.core.Assertions;
 import org.opensearch.Version;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -43,7 +43,7 @@ import org.opensearch.cluster.node.DiscoveryNodeRole;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.transport.TransportAddress;
+import org.opensearch.core.common.transport.TransportAddress;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.EqualsHashCodeTestUtils;
 import org.junit.Before;

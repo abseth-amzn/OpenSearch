@@ -32,11 +32,9 @@
 
 package org.opensearch.cluster.routing;
 
-import com.carrotsearch.hppc.ObjectIntHashMap;
-import com.carrotsearch.hppc.cursors.ObjectCursor;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.util.CollectionUtil;
-import org.opensearch.Assertions;
+import org.opensearch.core.Assertions;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.Metadata;
@@ -46,8 +44,8 @@ import org.opensearch.cluster.routing.allocation.ExistingShardsAllocator;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.Randomness;
 import org.opensearch.common.collect.Tuple;
-import org.opensearch.index.Index;
-import org.opensearch.index.shard.ShardId;
+import org.opensearch.core.index.Index;
+import org.opensearch.core.index.shard.ShardId;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -60,10 +58,13 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * {@link RoutingNodes} represents a copy the routing information contained in the {@link ClusterState cluster state}.
@@ -96,7 +97,7 @@ public class RoutingNodes implements Iterable<RoutingNode> {
 
     private int relocatingShards = 0;
 
-    private final Map<String, ObjectIntHashMap<String>> nodesPerAttributeNames = new HashMap<>();
+    private final Map<String, Set<String>> nodesPerAttributeNames;
     private final Map<String, Recoveries> recoveriesPerNode = new HashMap<>();
     private final Map<String, Recoveries> initialReplicaRecoveries = new HashMap<>();
     private final Map<String, Recoveries> initialPrimaryRecoveries = new HashMap<>();
@@ -108,17 +109,18 @@ public class RoutingNodes implements Iterable<RoutingNode> {
     public RoutingNodes(ClusterState clusterState, boolean readOnly) {
         this.readOnly = readOnly;
         final RoutingTable routingTable = clusterState.routingTable();
+        this.nodesPerAttributeNames = Collections.synchronizedMap(new HashMap<>());
 
         // fill in the nodeToShards with the "live" nodes
-        for (ObjectCursor<DiscoveryNode> cursor : clusterState.nodes().getDataNodes().values()) {
-            String nodeId = cursor.value.getId();
-            this.nodesToShards.put(cursor.value.getId(), new RoutingNode(nodeId, clusterState.nodes().get(nodeId)));
+        for (final DiscoveryNode cursor : clusterState.nodes().getDataNodes().values()) {
+            String nodeId = cursor.getId();
+            this.nodesToShards.put(cursor.getId(), new RoutingNode(nodeId, clusterState.nodes().get(nodeId)));
         }
 
         // fill in the inverse of node -> shards allocated
         // also fill replicaSet information
-        for (ObjectCursor<IndexRoutingTable> indexRoutingTable : routingTable.indicesRouting().values()) {
-            for (IndexShardRoutingTable indexShard : indexRoutingTable.value) {
+        for (final IndexRoutingTable indexRoutingTable : routingTable.indicesRouting().values()) {
+            for (IndexShardRoutingTable indexShard : indexRoutingTable) {
                 assert indexShard.primary != null;
                 for (ShardRouting shard : indexShard) {
                     // to get all the shards belonging to an index, including the replicas,
@@ -285,18 +287,15 @@ public class RoutingNodes implements Iterable<RoutingNode> {
         return nodesToShards.get(nodeId);
     }
 
-    public ObjectIntHashMap<String> nodesPerAttributesCounts(String attributeName) {
-        ObjectIntHashMap<String> nodesPerAttributesCounts = nodesPerAttributeNames.get(attributeName);
-        if (nodesPerAttributesCounts != null) {
-            return nodesPerAttributesCounts;
-        }
-        nodesPerAttributesCounts = new ObjectIntHashMap<>();
-        for (RoutingNode routingNode : this) {
-            String attrValue = routingNode.node().getAttributes().get(attributeName);
-            nodesPerAttributesCounts.addTo(attrValue, 1);
-        }
-        nodesPerAttributeNames.put(attributeName, nodesPerAttributesCounts);
-        return nodesPerAttributesCounts;
+    public Stream<RoutingNode> stream() {
+        return nodesToShards.values().stream();
+    }
+
+    public Set<String> nodesPerAttributesCounts(String attributeName) {
+        return nodesPerAttributeNames.computeIfAbsent(
+            attributeName,
+            ignored -> stream().map(r -> r.node().getAttributes().get(attributeName)).filter(Objects::nonNull).collect(Collectors.toSet())
+        );
     }
 
     /**

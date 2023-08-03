@@ -41,14 +41,14 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.apache.logging.log4j.util.Supplier;
 import org.opensearch.cloud.gce.GceInstancesService;
-import org.opensearch.common.Strings;
 import org.opensearch.common.network.NetworkAddress;
 import org.opensearch.common.network.NetworkService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Setting.Property;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.transport.TransportAddress;
+import org.opensearch.core.common.transport.TransportAddress;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.common.Strings;
 import org.opensearch.discovery.SeedHostsProvider;
 import org.opensearch.transport.TransportService;
 

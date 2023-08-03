@@ -48,10 +48,12 @@ import org.opensearch.index.mapper.ObjectMapper;
 import org.opensearch.index.query.ParsedQuery;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.shard.IndexShard;
-import org.opensearch.index.shard.ShardId;
+import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.index.similarity.SimilarityService;
 import org.opensearch.search.SearchExtBuilder;
 import org.opensearch.search.SearchShardTarget;
+import org.opensearch.search.aggregations.BucketCollectorProcessor;
+import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.SearchContextAggregations;
 import org.opensearch.search.collapse.CollapseContext;
 import org.opensearch.search.dfs.DfsSearchResult;
@@ -114,6 +116,15 @@ public class TestSearchContext extends SearchContext {
     private FieldDoc searchAfter;
     private Profilers profilers;
     private CollapseContext collapse;
+    protected boolean concurrentSegmentSearchEnabled;
+    private BucketCollectorProcessor bucketCollectorProcessor = NO_OP_BUCKET_COLLECTOR_PROCESSOR;
+
+    /**
+     * Sets the concurrent segment search enabled field
+     */
+    public void setConcurrentSegmentSearchEnabled(boolean concurrentSegmentSearchEnabled) {
+        this.concurrentSegmentSearchEnabled = concurrentSegmentSearchEnabled;
+    }
 
     private final Map<String, SearchExtBuilder> searchExtBuilders = new HashMap<>();
 
@@ -149,6 +160,7 @@ public class TestSearchContext extends SearchContext {
         this.indexShard = indexShard;
         this.queryShardContext = queryShardContext;
         this.searcher = searcher;
+        this.concurrentSegmentSearchEnabled = searcher != null && (searcher.getExecutor() != null);
         this.scrollContext = scrollContext;
     }
 
@@ -604,6 +616,14 @@ public class TestSearchContext extends SearchContext {
         return profilers;
     }
 
+    /**
+     * Returns concurrent segment search status for the search context
+     */
+    @Override
+    public boolean isConcurrentSegmentSearchEnabled() {
+        return concurrentSegmentSearchEnabled;
+    }
+
     @Override
     public Map<Class<?>, CollectorManager<? extends Collector, ReduceableSearchResult>> queryCollectorManagers() {
         return queryCollectorManagers;
@@ -639,6 +659,21 @@ public class TestSearchContext extends SearchContext {
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public InternalAggregation.ReduceContext partialOnShard() {
+        return InternalAggregationTestCase.emptyReduceContextBuilder().forPartialReduction();
+    }
+
+    @Override
+    public void setBucketCollectorProcessor(BucketCollectorProcessor bucketCollectorProcessor) {
+        this.bucketCollectorProcessor = bucketCollectorProcessor;
+    }
+
+    @Override
+    public BucketCollectorProcessor bucketCollectorProcessor() {
+        return bucketCollectorProcessor;
+    }
+
     /**
      * Clean the query results by consuming all of it
      */
@@ -652,7 +687,7 @@ public class TestSearchContext extends SearchContext {
      * Add profilers to the query
      */
     public TestSearchContext withProfilers() {
-        this.profilers = new Profilers(searcher);
+        this.profilers = new Profilers(searcher, concurrentSegmentSearchEnabled);
         return this;
     }
 }

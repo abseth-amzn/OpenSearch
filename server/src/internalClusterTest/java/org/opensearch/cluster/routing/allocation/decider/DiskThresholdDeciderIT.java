@@ -59,8 +59,8 @@ import org.opensearch.common.Priority;
 import org.opensearch.common.io.PathUtils;
 import org.opensearch.common.io.PathUtilsForTesting;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.unit.ByteSizeUnit;
-import org.opensearch.common.unit.ByteSizeValue;
+import org.opensearch.core.common.unit.ByteSizeUnit;
+import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.env.Environment;
 import org.opensearch.env.NodeEnvironment;
 import org.opensearch.index.IndexSettings;
@@ -573,7 +573,7 @@ public class DiskThresholdDeciderIT extends OpenSearchIntegTestCase {
         // if the nodes were all under the low watermark already (but unbalanced) then a change in the disk usage doesn't trigger a reroute
         // even though it's now possible to achieve better balance, so we have to do an explicit reroute. TODO fix this?
         if (StreamSupport.stream(clusterInfoService.getClusterInfo().getNodeMostAvailableDiskUsages().values().spliterator(), false)
-            .allMatch(cur -> cur.value.getFreeBytes() > WATERMARK_BYTES)) {
+            .allMatch(cur -> cur.getFreeBytes() > WATERMARK_BYTES)) {
             assertAcked(client().admin().cluster().prepareReroute());
         }
 

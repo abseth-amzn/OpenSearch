@@ -51,6 +51,7 @@ import org.opensearch.index.cache.bitset.BitsetFilterCache;
 import org.opensearch.index.fielddata.IndexFieldData.XFieldComparatorSource.Nested;
 import org.opensearch.index.mapper.BinaryFieldMapper;
 import org.opensearch.index.mapper.ContentPath;
+import org.opensearch.index.mapper.FlatObjectFieldMapper;
 import org.opensearch.index.mapper.GeoPointFieldMapper;
 import org.opensearch.index.mapper.KeywordFieldMapper;
 import org.opensearch.index.mapper.MappedFieldType;
@@ -59,7 +60,7 @@ import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.mapper.TextFieldMapper;
 import org.opensearch.index.query.QueryShardContext;
-import org.opensearch.index.shard.ShardId;
+import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.indices.IndicesService;
 import org.opensearch.indices.fielddata.cache.IndicesFieldDataCache;
 import org.opensearch.plugins.Plugin;
@@ -142,6 +143,8 @@ public abstract class AbstractFieldDataTestCase extends OpenSearchSingleNodeTest
                 .fieldType();
         } else if (type.equals("geo_point")) {
             fieldType = new GeoPointFieldMapper.Builder(fieldName).docValues(docValues).build(context).fieldType();
+        } else if (type.equals("flat_object")) {
+            fieldType = new FlatObjectFieldMapper.Builder(fieldName).docValues(docValues).build(context).fieldType();
         } else if (type.equals("binary")) {
             fieldType = new BinaryFieldMapper.Builder(fieldName, docValues).build(context).fieldType();
         } else {

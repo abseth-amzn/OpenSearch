@@ -38,13 +38,13 @@ import org.locationtech.jts.geom.GeometryFactory;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
-import org.opensearch.Assertions;
+import org.opensearch.core.Assertions;
 import org.opensearch.common.Strings;
 import org.opensearch.common.geo.GeoShapeType;
 import org.opensearch.common.geo.parsers.GeoWKTParser;
-import org.opensearch.common.io.stream.NamedWriteable;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.NamedWriteable;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.locationtech.spatial4j.context.jts.JtsSpatialContext;

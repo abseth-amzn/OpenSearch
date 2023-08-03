@@ -10,9 +10,9 @@ package org.opensearch.common.settings;
 
 import org.opensearch.Version;
 import org.opensearch.common.Nullable;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.common.settings.Setting.ByteSizeValueParser;
 import org.opensearch.common.settings.Setting.DoubleParser;
 import org.opensearch.common.settings.Setting.FloatParser;
@@ -23,7 +23,7 @@ import org.opensearch.common.settings.Setting.MinMaxTimeValueParser;
 import org.opensearch.common.settings.Setting.MinTimeValueParser;
 import org.opensearch.common.settings.Setting.Property;
 import org.opensearch.common.settings.Setting.RegexValidator;
-import org.opensearch.common.unit.ByteSizeValue;
+import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 import java.io.IOException;
 import java.util.Arrays;
@@ -368,7 +368,7 @@ public class WriteableSetting implements Writeable {
                 ((ByteSizeValue) defaultValue).writeTo(out);
                 break;
             case Version:
-                Version.writeVersion((Version) defaultValue, out);
+                out.writeVersion((Version) defaultValue);
                 break;
             default:
                 // This Should Never Happen (TM)
@@ -428,7 +428,7 @@ public class WriteableSetting implements Writeable {
             case ByteSizeValue:
                 return new ByteSizeValue(in);
             case Version:
-                return Version.readVersion(in);
+                return in.readVersion();
             default:
                 // This Should Never Happen (TM)
                 throw new IllegalArgumentException("A SettingType has been added to the enum and not handled here.");

@@ -27,7 +27,7 @@ import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.routing.allocation.AllocationService;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Priority;
-import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.http.HttpStats;
 import org.opensearch.threadpool.ThreadPool;
@@ -107,7 +107,7 @@ public class DecommissionController {
         );
 
         Predicate<ClusterState> allDecommissionedNodesRemovedPredicate = clusterState -> {
-            Set<DiscoveryNode> intersection = Arrays.stream(clusterState.nodes().getNodes().values().toArray(DiscoveryNode.class))
+            Set<DiscoveryNode> intersection = Arrays.stream(clusterState.nodes().getNodes().values().toArray(new DiscoveryNode[0]))
                 .collect(Collectors.toSet());
             intersection.retainAll(nodesToBeDecommissioned);
             return intersection.size() == 0;

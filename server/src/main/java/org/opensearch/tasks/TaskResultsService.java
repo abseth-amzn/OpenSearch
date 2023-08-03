@@ -53,12 +53,12 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.concurrent.OpenSearchRejectedExecutionException;
+import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.internal.io.Streams;
+import org.opensearch.common.util.io.Streams;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.ByteArrayOutputStream;
@@ -169,7 +169,7 @@ public class TaskResultsService {
 
     private void doStoreResult(TaskResult taskResult, ActionListener<Void> listener) {
         IndexRequestBuilder index = client.prepareIndex(TASK_INDEX).setId(taskResult.getTask().getTaskId().toString());
-        try (XContentBuilder builder = XContentFactory.contentBuilder(Requests.INDEX_CONTENT_TYPE)) {
+        try (XContentBuilder builder = MediaTypeRegistry.contentBuilder(Requests.INDEX_CONTENT_TYPE)) {
             taskResult.toXContent(builder, ToXContent.EMPTY_PARAMS);
             index.setSource(builder);
         } catch (IOException e) {

@@ -61,8 +61,8 @@ import org.opensearch.common.collect.MapBuilder;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.settings.SettingsException;
-import org.opensearch.common.unit.ByteSizeUnit;
-import org.opensearch.common.unit.ByteSizeValue;
+import org.opensearch.core.common.unit.ByteSizeUnit;
+import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 
 import java.net.Authenticator;
@@ -250,7 +250,7 @@ public class AzureStorageService implements AutoCloseable {
 
     private static BlobServiceClientBuilder createClientBuilder(AzureStorageSettings settings) throws InvalidKeyException,
         URISyntaxException {
-        return new BlobServiceClientBuilder().connectionString(settings.getConnectString());
+        return SocketAccess.doPrivilegedException(() -> new BlobServiceClientBuilder().connectionString(settings.getConnectString()));
     }
 
     /**

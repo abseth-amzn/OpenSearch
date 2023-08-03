@@ -33,9 +33,9 @@ package org.opensearch.common.unit;
 
 import org.opensearch.OpenSearchParseException;
 import org.opensearch.core.ParseField;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.ToXContentFragment;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
@@ -178,6 +178,9 @@ public final class Fuzziness implements ToXContentFragment, Writeable {
                 }
                 try {
                     final int minimumSimilarity = Integer.parseInt(fuzziness);
+                    if (minimumSimilarity < 0) {
+                        throw new IllegalArgumentException("Invalid fuzziness value: " + fuzziness);
+                    }
                     switch (minimumSimilarity) {
                         case 0:
                             return ZERO;
@@ -192,6 +195,9 @@ public final class Fuzziness implements ToXContentFragment, Writeable {
                     // Validate if the fuzziness value is formatted correctly as a numeric value.
                     try {
                         final float minimumSimilarity = Float.parseFloat(fuzziness);
+                        if (minimumSimilarity < 0.0f || Float.isInfinite(minimumSimilarity) || Float.isNaN(minimumSimilarity)) {
+                            throw new IllegalArgumentException("Invalid fuzziness value: " + fuzziness);
+                        }
                         return build(fuzziness);
                     } catch (NumberFormatException e) {
                         throw new IllegalArgumentException("Invalid fuzziness value: " + fuzziness);

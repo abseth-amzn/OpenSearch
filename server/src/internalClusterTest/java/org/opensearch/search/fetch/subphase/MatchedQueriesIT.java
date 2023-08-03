@@ -33,7 +33,7 @@
 package org.opensearch.search.fetch.subphase;
 
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.MatchQueryBuilder;
@@ -328,6 +328,7 @@ public class MatchedQueriesIT extends OpenSearchIntegTestCase {
                         .should(queryStringQuery("dolor").queryName("dolor"))
                         .should(queryStringQuery("elit").queryName("elit"))
                 )
+                .setPreference("_primary")
                 .get();
 
             assertHitCount(searchResponse, 2L);

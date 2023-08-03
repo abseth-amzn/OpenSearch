@@ -34,6 +34,8 @@ package org.opensearch.common.xcontent.yaml;
 
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
@@ -54,6 +56,9 @@ import java.util.Set;
  * A YAML based content implementation using Jackson.
  */
 public class YamlXContent implements XContent {
+    public static final int DEFAULT_MAX_STRING_LEN = Integer.parseInt(
+        System.getProperty("opensearch.xcontent.string.length.max", "50000000" /* ~50 Mb */)
+    );
 
     public static XContentBuilder contentBuilder() throws IOException {
         return XContentBuilder.builder(yamlXContent);
@@ -65,6 +70,8 @@ public class YamlXContent implements XContent {
     static {
         yamlFactory = new YAMLFactory();
         yamlFactory.configure(JsonParser.Feature.STRICT_DUPLICATE_DETECTION, true);
+        yamlFactory.setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(DEFAULT_MAX_STRING_LEN).build());
+        yamlFactory.configure(StreamReadFeature.USE_FAST_DOUBLE_PARSER.mappedFeature(), true);
         yamlXContent = new YamlXContent();
     }
 

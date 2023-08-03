@@ -59,11 +59,8 @@ import org.opensearch.ExceptionsHelper;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.SetOnce;
-import org.opensearch.common.bytes.BytesReference;
-import org.opensearch.common.collect.ImmutableOpenMap;
+import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.common.concurrent.GatedCloseable;
-import org.opensearch.common.lease.Releasable;
-import org.opensearch.common.lease.Releasables;
 import org.opensearch.common.logging.Loggers;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.common.lucene.index.OpenSearchDirectoryReader;
@@ -72,9 +69,11 @@ import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.common.lucene.uid.VersionsAndSeqNoResolver;
 import org.opensearch.common.lucene.uid.VersionsAndSeqNoResolver.DocIdAndVersion;
 import org.opensearch.common.metrics.CounterMetric;
-import org.opensearch.common.unit.ByteSizeValue;
+import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ReleasableLock;
+import org.opensearch.common.lease.Releasable;
+import org.opensearch.common.lease.Releasables;
 import org.opensearch.index.VersionType;
 import org.opensearch.index.mapper.IdFieldMapper;
 import org.opensearch.index.mapper.Mapping;
@@ -85,7 +84,7 @@ import org.opensearch.index.merge.MergeStats;
 import org.opensearch.index.seqno.SeqNoStats;
 import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.index.shard.DocsStats;
-import org.opensearch.index.shard.ShardId;
+import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.index.store.Store;
 import org.opensearch.index.translog.Translog;
 import org.opensearch.index.translog.TranslogManager;
@@ -99,6 +98,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.NoSuchFileException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -950,7 +950,7 @@ public abstract class Engine implements LifecycleAware, Closeable {
         }
     }
 
-    private ImmutableOpenMap<String, Long> getSegmentFileSizes(SegmentReader segmentReader) {
+    private Map<String, Long> getSegmentFileSizes(SegmentReader segmentReader) {
         Directory directory = null;
         SegmentCommitInfo segmentCommitInfo = segmentReader.getSegmentInfo();
         boolean useCompoundFile = segmentCommitInfo.info.getUseCompoundFile();
@@ -969,7 +969,7 @@ public abstract class Engine implements LifecycleAware, Closeable {
                     e
                 );
 
-                return ImmutableOpenMap.of();
+                return Map.of();
             }
         } else {
             directory = segmentReader.directory();
@@ -984,7 +984,7 @@ public abstract class Engine implements LifecycleAware, Closeable {
             } catch (IOException e) {
                 final Directory finalDirectory = directory;
                 logger.warn(() -> new ParameterizedMessage("Couldn't list Compound Reader Directory [{}]", finalDirectory), e);
-                return ImmutableOpenMap.of();
+                return Map.of();
             }
         } else {
             try {
@@ -998,11 +998,11 @@ public abstract class Engine implements LifecycleAware, Closeable {
                     ),
                     e
                 );
-                return ImmutableOpenMap.of();
+                return Map.of();
             }
         }
 
-        ImmutableOpenMap.Builder<String, Long> map = ImmutableOpenMap.builder();
+        Map<String, Long> map = new HashMap<>();
         for (String file : files) {
             String extension = IndexFileNames.getExtension(file);
             long length = 0L;
@@ -1033,7 +1033,7 @@ public abstract class Engine implements LifecycleAware, Closeable {
             }
         }
 
-        return map.build();
+        return Collections.unmodifiableMap(map);
     }
 
     protected void writerSegmentStats(SegmentsStats stats) {

@@ -39,11 +39,12 @@ import org.opensearch.action.IndicesRequest;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.clustermanager.ClusterManagerNodeRequest;
 import org.opensearch.common.Strings;
-import org.opensearch.common.bytes.BytesReference;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.MediaType;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -56,11 +57,11 @@ import java.util.Map;
 import java.util.Objects;
 
 import static org.opensearch.action.ValidateActions.addValidationError;
-import static org.opensearch.common.Strings.EMPTY_ARRAY;
 import static org.opensearch.common.settings.Settings.Builder.EMPTY_SETTINGS;
 import static org.opensearch.common.settings.Settings.readSettingsFromStream;
 import static org.opensearch.common.settings.Settings.writeSettingsToStream;
 import static org.opensearch.common.xcontent.support.XContentMapValues.nodeBooleanValue;
+import static org.opensearch.core.common.Strings.EMPTY_ARRAY;
 
 /**
  * Create snapshot request
@@ -71,7 +72,7 @@ import static org.opensearch.common.xcontent.support.XContentMapValues.nodeBoole
  * <li>must not contain whitespace (tabs or spaces)</li>
  * <li>must not contain comma (',')</li>
  * <li>must not contain hash sign ('#')</li>
- * <li>must not start with underscore ('-')</li>
+ * <li>must not start with underscore ('_')</li>
  * <li>must be lowercase</li>
  * <li>must not contain invalid file name characters {@link org.opensearch.common.Strings#INVALID_FILENAME_CHARS} </li>
  * </ul>
@@ -387,7 +388,7 @@ public class CreateSnapshotRequest extends ClusterManagerNodeRequest<CreateSnaps
      */
     public CreateSnapshotRequest settings(Map<String, Object> source) {
         try {
-            XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
+            XContentBuilder builder = MediaTypeRegistry.contentBuilder(XContentType.JSON);
             builder.map(source);
             settings(Strings.toString(builder), builder.contentType());
         } catch (IOException e) {
@@ -446,7 +447,7 @@ public class CreateSnapshotRequest extends ClusterManagerNodeRequest<CreateSnaps
             String name = entry.getKey();
             if (name.equals("indices")) {
                 if (entry.getValue() instanceof String) {
-                    indices(Strings.splitStringByCommaToArray((String) entry.getValue()));
+                    indices(org.opensearch.core.common.Strings.splitStringByCommaToArray((String) entry.getValue()));
                 } else if (entry.getValue() instanceof List) {
                     indices((List<String>) entry.getValue());
                 } else {

@@ -56,7 +56,7 @@ import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.Mapper.BuilderContext;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.mapper.TextFieldMapper;
-import org.opensearch.index.shard.ShardId;
+import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.indices.IndicesService;
 import org.opensearch.indices.fielddata.cache.IndicesFieldDataCache;
 import org.opensearch.plugins.Plugin;
@@ -359,6 +359,22 @@ public class IndexFieldDataServiceTests extends OpenSearchSingleNodeTestCase {
             new NumberFieldMapper.NumberFieldType(
                 "field",
                 NumberFieldMapper.NumberType.DOUBLE,
+                true,
+                false,
+                false,
+                false,
+                null,
+                Collections.emptyMap()
+            )
+        );
+    }
+
+    public void testRequireDocValuesOnUnsignedLongs() {
+        doTestRequireDocValues(new NumberFieldMapper.NumberFieldType("field", NumberFieldMapper.NumberType.UNSIGNED_LONG));
+        doTestRequireDocValues(
+            new NumberFieldMapper.NumberFieldType(
+                "field",
+                NumberFieldMapper.NumberType.UNSIGNED_LONG,
                 true,
                 false,
                 false,

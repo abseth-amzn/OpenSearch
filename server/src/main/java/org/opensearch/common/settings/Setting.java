@@ -40,20 +40,21 @@ import org.opensearch.common.Booleans;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.Strings;
 import org.opensearch.common.collect.Tuple;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.regex.Regex;
-import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.MemorySizeValue;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.common.unit.ByteSizeUnit;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.Writeable;
+import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.common.xcontent.XContentType;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -162,7 +163,12 @@ public class Setting<T> implements ToXContentObject {
         /**
          * Indicates an index-level setting that is privately managed. Such a setting can not even be set on index creation.
          */
-        PrivateIndex
+        PrivateIndex,
+
+        /**
+         * Extension scope
+         */
+        ExtensionScope
     }
 
     private final Key key;
@@ -1256,15 +1262,27 @@ public class Setting<T> implements ToXContentObject {
     public static class RegexValidator implements Writeable, Validator<String> {
         private Pattern pattern;
 
+        private boolean isMatching;
+
         /**
          * @param regex A regular expression containing the only valid input for this setting.
          */
         public RegexValidator(String regex) {
+            this(regex, true);
+        }
+
+        /**
+         * @param regex constructs a validator based on a regular expression.
+         * @param isMatching If true, the setting must match the given regex. If false, the setting must not match the given regex.
+         */
+        public RegexValidator(String regex, boolean isMatching) {
             this.pattern = Pattern.compile(regex);
+            this.isMatching = isMatching;
         }
 
         public RegexValidator(StreamInput in) throws IOException {
             this.pattern = Pattern.compile(in.readString());
+            this.isMatching = in.readBoolean();
         }
 
         Pattern getPattern() {
@@ -1273,14 +1291,17 @@ public class Setting<T> implements ToXContentObject {
 
         @Override
         public void validate(String value) {
-            if (!pattern.matcher(value).matches()) {
+            if (isMatching && !pattern.matcher(value).find()) {
                 throw new IllegalArgumentException("Setting [" + value + "] does not match regex [" + pattern.pattern() + "]");
+            } else if (!isMatching && pattern.matcher(value).find()) {
+                throw new IllegalArgumentException("Setting [" + value + "] must match regex [" + pattern.pattern() + "]");
             }
         }
 
         @Override
         public void writeTo(StreamOutput out) throws IOException {
             out.writeString(pattern.pattern());
+            out.writeBoolean(isMatching);
         }
     }
 
@@ -2027,7 +2048,7 @@ public class Setting<T> implements ToXContentObject {
     }
 
     public static Setting<ByteSizeValue> byteSizeSetting(String key, ByteSizeValue value, Property... properties) {
-        return byteSizeSetting(key, (s) -> value.toString(), properties);
+        return byteSizeSetting(key, (s) -> value.getBytes() + ByteSizeUnit.BYTES.getSuffix(), properties);
     }
 
     public static Setting<ByteSizeValue> byteSizeSetting(String key, Setting<ByteSizeValue> fallbackSetting, Property... properties) {

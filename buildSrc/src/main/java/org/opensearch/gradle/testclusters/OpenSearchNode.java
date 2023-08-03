@@ -141,6 +141,7 @@ public class OpenSearchNode implements TestClusterConfiguration {
     private final Map<String, Configuration> pluginAndModuleConfigurations = new HashMap<>();
     private final List<Provider<File>> plugins = new ArrayList<>();
     private final List<Provider<File>> modules = new ArrayList<>();
+    private boolean extensionsEnabled = false;
     final LazyPropertyMap<String, CharSequence> settings = new LazyPropertyMap<>("Settings", this);
     private final LazyPropertyMap<String, CharSequence> keystoreSettings = new LazyPropertyMap<>("Keystore", this);
     private final LazyPropertyMap<String, File> keystoreFiles = new LazyPropertyMap<>("Keystore files", this, FileEntry::new);
@@ -339,6 +340,11 @@ public class OpenSearchNode implements TestClusterConfiguration {
     @Override
     public void module(String moduleProjectPath) {
         module(maybeCreatePluginOrModuleDependency(moduleProjectPath));
+    }
+
+    @Override
+    public void extension(boolean extensionsEnabled) {
+        this.extensionsEnabled = extensionsEnabled;
     }
 
     @Override
@@ -784,6 +790,10 @@ public class OpenSearchNode implements TestClusterConfiguration {
         // Don't inherit anything from the environment for as that would lack reproducibility
         environment.clear();
         environment.putAll(getOpenSearchEnvironment());
+
+        if (extensionsEnabled) {
+            environment.put("OPENSEARCH_JAVA_OPTS", "-Dopensearch.experimental.feature.extensions.enabled=true");
+        }
 
         // don't buffer all in memory, make sure we don't block on the default pipes
         processBuilder.redirectError(ProcessBuilder.Redirect.appendTo(stderrFile.toFile()));

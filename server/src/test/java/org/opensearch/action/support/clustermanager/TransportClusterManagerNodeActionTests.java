@@ -54,14 +54,14 @@ import org.opensearch.cluster.node.DiscoveryNodeRole;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterManagerThrottlingException;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.discovery.ClusterManagerNotDiscoveredException;
 import org.opensearch.node.NodeClosedException;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.transport.CapturingTransport;
@@ -669,7 +669,7 @@ public class TransportClusterManagerNodeActionTests extends OpenSearchTestCase {
         assertFalse(listener.isDone());
 
         // waiting for retry to trigger
-        Thread.sleep(100);
+        Thread.sleep(10000);
 
         // Retry for above throttling exception
         capturedRequests = transport.getCapturedRequestsAndClear();

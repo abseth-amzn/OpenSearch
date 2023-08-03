@@ -49,6 +49,7 @@ import org.apache.lucene.index.SegmentInfos;
 import org.apache.lucene.index.ShuffleForcedMergePolicy;
 import org.apache.lucene.index.SoftDeletesRetentionMergePolicy;
 import org.apache.lucene.index.StandardDirectoryReader;
+import org.apache.lucene.index.StoredFields;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
@@ -65,14 +66,13 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.LockObtainFailedException;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.InfoStream;
-import org.opensearch.Assertions;
 import org.opensearch.ExceptionsHelper;
+import org.opensearch.core.Assertions;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.common.Booleans;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.SuppressForbidden;
 import org.opensearch.common.concurrent.GatedCloseable;
-import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.lucene.LoggerInfoStream;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.common.lucene.index.OpenSearchDirectoryReader;
@@ -81,12 +81,13 @@ import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.common.lucene.uid.VersionsAndSeqNoResolver;
 import org.opensearch.common.lucene.uid.VersionsAndSeqNoResolver.DocIdAndSeqNo;
 import org.opensearch.common.metrics.CounterMetric;
-import org.opensearch.common.unit.ByteSizeValue;
+import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.AbstractRunnable;
 import org.opensearch.common.util.concurrent.KeyedLock;
 import org.opensearch.common.util.concurrent.ReleasableLock;
-import org.opensearch.core.internal.io.IOUtils;
+import org.opensearch.common.util.io.IOUtils;
+import org.opensearch.common.lease.Releasable;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.VersionType;
 import org.opensearch.index.fieldvisitor.IdOnlyFieldVisitor;
@@ -102,7 +103,7 @@ import org.opensearch.index.seqno.LocalCheckpointTracker;
 import org.opensearch.index.seqno.SeqNoStats;
 import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.index.shard.OpenSearchMergePolicy;
-import org.opensearch.index.shard.ShardId;
+import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.index.translog.Translog;
 import org.opensearch.index.translog.TranslogCorruptedException;
 import org.opensearch.index.translog.TranslogDeletionPolicy;
@@ -2145,7 +2146,13 @@ public class InternalEngine extends Engine {
         } catch (IOException e) {
             throw new EngineException(shardId, e.getMessage(), e);
         }
-        return new GatedCloseable<>(segmentInfos, () -> indexWriter.decRefDeleter(segmentInfos));
+        return new GatedCloseable<>(segmentInfos, () -> {
+            try {
+                indexWriter.decRefDeleter(segmentInfos);
+            } catch (AlreadyClosedException e) {
+                logger.warn("Engine is already closed.", e);
+            }
+        });
     }
 
     @Override
@@ -2315,6 +2322,9 @@ public class InternalEngine extends Engine {
         iwc.setUseCompoundFile(true); // always use compound on flush - reduces # of file-handles on refresh
         if (config().getIndexSort() != null) {
             iwc.setIndexSort(config().getIndexSort());
+        }
+        if (config().getLeafSorter() != null) {
+            iwc.setLeafSorter(config().getLeafSorter()); // The default segment search order
         }
         return iwc;
     }
@@ -2754,6 +2764,13 @@ public class InternalEngine extends Engine {
         return lastRefreshedCheckpointListener.refreshedCheckpoint.get();
     }
 
+    /**
+     * Returns the current local checkpoint getting refreshed internally.
+     */
+    public final long currentOngoingRefreshCheckpoint() {
+        return lastRefreshedCheckpointListener.pendingCheckpoint;
+    }
+
     private final Object refreshIfNeededMutex = new Object();
 
     /**
@@ -2771,10 +2788,11 @@ public class InternalEngine extends Engine {
 
     private final class LastRefreshedCheckpointListener implements ReferenceManager.RefreshListener {
         final AtomicLong refreshedCheckpoint;
-        private long pendingCheckpoint;
+        volatile long pendingCheckpoint;
 
         LastRefreshedCheckpointListener(long initialLocalCheckpoint) {
             this.refreshedCheckpoint = new AtomicLong(initialLocalCheckpoint);
+            this.pendingCheckpoint = initialLocalCheckpoint;
         }
 
         @Override
@@ -2872,6 +2890,7 @@ public class InternalEngine extends Engine {
             final CombinedDocValues dv = new CombinedDocValues(leaf.reader());
             final IdOnlyFieldVisitor idFieldVisitor = new IdOnlyFieldVisitor();
             final DocIdSetIterator iterator = scorer.iterator();
+            final StoredFields storedFields = leaf.reader().storedFields();
             int docId;
             while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
                 final long primaryTerm = dv.docPrimaryTerm(docId);
@@ -2879,7 +2898,7 @@ public class InternalEngine extends Engine {
                 localCheckpointTracker.markSeqNoAsProcessed(seqNo);
                 localCheckpointTracker.markSeqNoAsPersisted(seqNo);
                 idFieldVisitor.reset();
-                leaf.reader().document(docId, idFieldVisitor);
+                storedFields.document(docId, idFieldVisitor);
                 if (idFieldVisitor.getId() == null) {
                     assert dv.isTombstone(docId);
                     continue;

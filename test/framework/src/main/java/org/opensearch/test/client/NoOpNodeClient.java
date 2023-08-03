@@ -34,13 +34,13 @@ package org.opensearch.test.client;
 
 import org.opensearch.OpenSearchException;
 import org.opensearch.action.ActionListener;
+import org.opensearch.action.ActionModule.DynamicActionRegistry;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.action.ActionType;
-import org.opensearch.action.support.TransportAction;
 import org.opensearch.client.Client;
 import org.opensearch.client.node.NodeClient;
-import org.opensearch.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskListener;
@@ -48,7 +48,6 @@ import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.RemoteClusterService;
 
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
@@ -86,7 +85,7 @@ public class NoOpNodeClient extends NodeClient {
 
     @Override
     public void initialize(
-        Map<ActionType, TransportAction> actions,
+        DynamicActionRegistry dynamicActionRegistry,
         Supplier<String> localNodeId,
         RemoteClusterService remoteClusterService,
         NamedWriteableRegistry namedWriteableRegistry

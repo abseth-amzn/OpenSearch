@@ -35,8 +35,8 @@ package org.opensearch.action.admin.indices.forcemerge;
 import org.opensearch.Version;
 import org.opensearch.action.support.broadcast.BroadcastRequest;
 import org.opensearch.common.UUIDs;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.index.engine.Engine;
 
 import java.io.IOException;
@@ -80,6 +80,8 @@ public class ForceMergeRequest extends BroadcastRequest<ForceMergeRequest> {
      * {@link org.opensearch.index.engine.Engine#FORCE_MERGE_UUID_KEY} after force merging it.
      */
     private final String forceMergeUUID;
+
+    private boolean shouldStoreResult;
 
     /**
      * Constructs a merge request over one or more indices.
@@ -160,6 +162,18 @@ public class ForceMergeRequest extends BroadcastRequest<ForceMergeRequest> {
     public ForceMergeRequest flush(boolean flush) {
         this.flush = flush;
         return this;
+    }
+
+    /**
+     * Should this task store its result after it has finished?
+     */
+    public void setShouldStoreResult(boolean shouldStoreResult) {
+        this.shouldStoreResult = shouldStoreResult;
+    }
+
+    @Override
+    public boolean getShouldStoreResult() {
+        return shouldStoreResult;
     }
 
     @Override

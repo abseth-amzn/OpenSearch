@@ -9,16 +9,19 @@
 package org.opensearch.extensions.rest;
 
 import org.opensearch.OpenSearchParseException;
-import org.opensearch.common.bytes.BytesReference;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.Version;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestRequest.Method;
 import org.opensearch.transport.TransportRequest;
+import org.opensearch.http.HttpRequest;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -37,13 +40,16 @@ import java.util.Set;
 public class ExtensionRestRequest extends TransportRequest {
 
     private Method method;
+    private String uri;
     private String path;
     private Map<String, String> params;
-    private XContentType xContentType = null;
+    private Map<String, List<String>> headers;
+    private MediaType mediaType = null;
     private BytesReference content;
     // The owner of this request object
     // Will be replaced with PrincipalIdentifierToken class from feature/identity
     private String principalIdentifierToken;
+    private HttpRequest.HttpVersion httpVersion;
 
     // Tracks consumed parameters and content
     private final Set<String> consumedParams = new HashSet<>();
@@ -52,27 +58,36 @@ public class ExtensionRestRequest extends TransportRequest {
     /**
      * This object can be instantiated given method, uri, params, content and identifier
      *
-     * @param method of type {@link Method}
-     * @param path the REST path string (excluding the query)
-     * @param params the REST params
-     * @param xContentType the content type, or null for plain text or no content
-     * @param content the REST request content
+     * @param method              of type {@link Method}
+     * @param uri                 the REST uri string (excluding the query)
+     * @param path                the REST path
+     * @param params              the REST params
+     * @param headers             the REST headers
+     * @param mediaType           the content type, or null for plain text or no content
+     * @param content             the REST request content
      * @param principalIdentifier the owner of this request
+     * @param httpVersion         the REST HTTP protocol version
      */
     public ExtensionRestRequest(
         Method method,
+        String uri,
         String path,
         Map<String, String> params,
-        XContentType xContentType,
+        Map<String, List<String>> headers,
+        MediaType mediaType,
         BytesReference content,
-        String principalIdentifier
+        String principalIdentifier,
+        HttpRequest.HttpVersion httpVersion
     ) {
         this.method = method;
+        this.uri = uri;
         this.path = path;
         this.params = params;
-        this.xContentType = xContentType;
+        this.headers = headers;
+        this.mediaType = mediaType;
         this.content = content;
         this.principalIdentifierToken = principalIdentifier;
+        this.httpVersion = httpVersion;
     }
 
     /**
@@ -84,27 +99,41 @@ public class ExtensionRestRequest extends TransportRequest {
     public ExtensionRestRequest(StreamInput in) throws IOException {
         super(in);
         method = in.readEnum(RestRequest.Method.class);
+        uri = in.readString();
         path = in.readString();
         params = in.readMap(StreamInput::readString, StreamInput::readString);
+        headers = in.readMap(StreamInput::readString, StreamInput::readStringList);
         if (in.readBoolean()) {
-            xContentType = in.readEnum(XContentType.class);
+            if (in.getVersion().onOrAfter(Version.V_2_10_0)) {
+                mediaType = in.readMediaType();
+            } else {
+                mediaType = in.readEnum(XContentType.class);
+            }
         }
         content = in.readBytesReference();
         principalIdentifierToken = in.readString();
+        httpVersion = in.readEnum(HttpRequest.HttpVersion.class);
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeEnum(method);
+        out.writeString(uri);
         out.writeString(path);
         out.writeMap(params, StreamOutput::writeString, StreamOutput::writeString);
-        out.writeBoolean(xContentType != null);
-        if (xContentType != null) {
-            out.writeEnum(xContentType);
+        out.writeMap(headers, StreamOutput::writeString, StreamOutput::writeStringCollection);
+        out.writeBoolean(mediaType != null);
+        if (mediaType != null) {
+            if (out.getVersion().onOrAfter(Version.V_2_10_0)) {
+                mediaType.writeTo(out);
+            } else {
+                out.writeEnum((XContentType) mediaType);
+            }
         }
         out.writeBytesReference(content);
         out.writeString(principalIdentifierToken);
+        out.writeEnum(httpVersion);
     }
 
     /**
@@ -114,6 +143,15 @@ public class ExtensionRestRequest extends TransportRequest {
      */
     public Method method() {
         return method;
+    }
+
+    /**
+     * Gets the REST uri
+     *
+     * @return This REST request's uri
+     */
+    public String uri() {
+        return uri;
     }
 
     /**
@@ -197,12 +235,20 @@ public class ExtensionRestRequest extends TransportRequest {
     }
 
     /**
+     * Gets the headers of request
+     * @return a map of request headers
+     */
+    public Map<String, List<String>> headers() {
+        return headers;
+    }
+
+    /**
      * Gets the content type, if any.
      *
      * @return the content type of the {@link #content()}, or null if the context is plain text or if there is no content.
      */
-    public XContentType getXContentType() {
-        return xContentType;
+    public MediaType getXContentType() {
+        return mediaType;
     }
 
     /**
@@ -255,20 +301,33 @@ public class ExtensionRestRequest extends TransportRequest {
         return principalIdentifierToken;
     }
 
+    /**
+     * @return This REST request's HTTP protocol version
+     */
+    public HttpRequest.HttpVersion protocolVersion() {
+        return httpVersion;
+    }
+
     @Override
     public String toString() {
         return "ExtensionRestRequest{method="
             + method
+            + ", uri="
+            + uri
             + ", path="
             + path
             + ", params="
             + params
+            + ", headers="
+            + headers.toString()
             + ", xContentType="
-            + xContentType
+            + mediaType
             + ", contentLength="
             + content.length()
             + ", requester="
             + principalIdentifierToken
+            + ", httpVersion="
+            + httpVersion
             + "}";
     }
 
@@ -278,15 +337,18 @@ public class ExtensionRestRequest extends TransportRequest {
         if (obj == null || getClass() != obj.getClass()) return false;
         ExtensionRestRequest that = (ExtensionRestRequest) obj;
         return Objects.equals(method, that.method)
+            && Objects.equals(uri, that.uri)
             && Objects.equals(path, that.path)
             && Objects.equals(params, that.params)
-            && Objects.equals(xContentType, that.xContentType)
+            && Objects.equals(headers, that.headers)
+            && Objects.equals(mediaType, that.mediaType)
             && Objects.equals(content, that.content)
-            && Objects.equals(principalIdentifierToken, that.principalIdentifierToken);
+            && Objects.equals(principalIdentifierToken, that.principalIdentifierToken)
+            && Objects.equals(httpVersion, that.httpVersion);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(method, path, params, xContentType, content, principalIdentifierToken);
+        return Objects.hash(method, uri, path, params, headers, mediaType, content, principalIdentifierToken, httpVersion);
     }
 }

@@ -46,11 +46,11 @@ import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.CheckedRunnable;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.unit.ByteSizeUnit;
-import org.opensearch.common.unit.ByteSizeValue;
+import org.opensearch.core.common.unit.ByteSizeUnit;
+import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.common.util.BigArrays;
 import org.opensearch.gateway.PersistedClusterStateService;
-import org.opensearch.index.Index;
+import org.opensearch.core.index.Index;
 import org.opensearch.test.OpenSearchTestCase;
 import org.hamcrest.Matcher;
 import org.junit.Before;
@@ -391,7 +391,7 @@ public class NodeRepurposeCommandTests extends OpenSearchTestCase {
 
             if (cacheMode) {
                 Path cachePath = env.fileCacheNodePath().fileCachePath;
-                cachePath = cachePath.resolve(String.valueOf(env.getNodeLockId())).resolve(INDEX.getUUID());
+                cachePath = cachePath.resolve(INDEX.getUUID());
                 for (int i = 0; i < shardCount; ++i) {
                     Files.createDirectories(cachePath.resolve(Integer.toString(shardDataDirNumber)));
                     shardDataDirNumber += randomIntBetween(1, 10);

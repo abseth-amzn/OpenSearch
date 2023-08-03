@@ -32,7 +32,6 @@
 
 package org.opensearch.action.admin.indices.mapping.put;
 
-import com.carrotsearch.hppc.ObjectHashSet;
 import org.opensearch.OpenSearchGenerationException;
 import org.opensearch.Version;
 import org.opensearch.action.ActionRequestValidationException;
@@ -40,19 +39,20 @@ import org.opensearch.action.IndicesRequest;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.master.AcknowledgedRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.common.Strings;
-import org.opensearch.common.bytes.BytesArray;
-import org.opensearch.common.bytes.BytesReference;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.core.common.bytes.BytesArray;
+import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.common.util.CollectionUtils;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.xcontent.MediaType;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.index.Index;
+import org.opensearch.core.index.Index;
 import org.opensearch.index.mapper.MapperService;
 
 import java.io.IOException;
@@ -61,6 +61,7 @@ import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static org.opensearch.action.ValidateActions.addValidationError;
 
@@ -79,7 +80,7 @@ import static org.opensearch.action.ValidateActions.addValidationError;
  */
 public class PutMappingRequest extends AcknowledgedRequest<PutMappingRequest> implements IndicesRequest.Replaceable, ToXContentObject {
 
-    private static ObjectHashSet<String> RESERVED_FIELDS = ObjectHashSet.from(
+    private static final Set<String> RESERVED_FIELDS = Set.of(
         "_uid",
         "_id",
         "_type",
@@ -250,7 +251,7 @@ public class PutMappingRequest extends AcknowledgedRequest<PutMappingRequest> im
                     builder.startObject(fieldName);
                     String[] s1 = Strings.splitStringByCommaToArray(source[i]);
                     for (String s : s1) {
-                        String[] s2 = Strings.split(s, "=");
+                        String[] s2 = org.opensearch.common.Strings.split(s, "=");
                         if (s2.length != 2) {
                             throw new IllegalArgumentException("malformed " + s);
                         }
@@ -270,7 +271,7 @@ public class PutMappingRequest extends AcknowledgedRequest<PutMappingRequest> im
                 builder.startObject(fieldName);
                 String[] s1 = Strings.splitStringByCommaToArray(source[i]);
                 for (String s : s1) {
-                    String[] s2 = Strings.split(s, "=");
+                    String[] s2 = org.opensearch.common.Strings.split(s, "=");
                     if (s2.length != 2) {
                         throw new IllegalArgumentException("malformed " + s);
                     }
@@ -298,7 +299,7 @@ public class PutMappingRequest extends AcknowledgedRequest<PutMappingRequest> im
      */
     public PutMappingRequest source(Map<String, ?> mappingSource) {
         try {
-            XContentBuilder builder = XContentFactory.contentBuilder(XContentType.JSON);
+            XContentBuilder builder = MediaTypeRegistry.contentBuilder(XContentType.JSON);
             builder.map(mappingSource);
             return source(BytesReference.bytes(builder), builder.contentType());
         } catch (IOException e) {

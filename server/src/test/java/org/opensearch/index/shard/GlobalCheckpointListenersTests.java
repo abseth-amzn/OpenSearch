@@ -34,11 +34,12 @@ package org.opensearch.index.shard;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.opensearch.Assertions;
+import org.opensearch.core.Assertions;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.OpenSearchExecutors;
-import org.opensearch.index.Index;
+import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.core.index.Index;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.Scheduler;
 import org.junit.After;

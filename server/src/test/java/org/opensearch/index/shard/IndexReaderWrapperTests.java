@@ -48,7 +48,8 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.Directory;
 import org.opensearch.common.CheckedFunction;
 import org.opensearch.common.lucene.index.OpenSearchDirectoryReader;
-import org.opensearch.core.internal.io.IOUtils;
+import org.opensearch.common.util.io.IOUtils;
+import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.index.engine.Engine;
 import org.opensearch.test.OpenSearchTestCase;
 
